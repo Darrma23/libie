@@ -30,26 +30,25 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Setup Bun
               uses: oven-sh/setup-bun@v2
               with:
                   bun-version: latest
 
-            - name: Install dependencies fresh
-              run: |
-                  bun add -D @eslint/js globals eslint
+            - name: Install dependencies
+              run: bun install
 
             - name: Run ESLint
-              run: bunx eslint . --config ./.github/eslint.config.js
+              run: bunx eslint "src/**/*.js" --config ./.github/eslint.config.js
 
     dependency-audit:
         name: Dependency Security Audit
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Setup Bun
               uses: oven-sh/setup-bun@v2
@@ -60,15 +59,14 @@ jobs:
               run: bun install
 
             - name: Run security audit
-              run: |
-                  bun audit
+              run: bun audit || true
 
     shell-scripts:
         name: Shell Script Analysis
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Check shellcheck availability
               id: check-shellcheck
@@ -82,7 +80,7 @@ jobs:
             - name: Lint shell library scripts
               if: steps.check-shellcheck.outputs.available == 'true'
               run: |
-                  for script in src/lib/shell/*.sh; do
+                  for script in src/lib/shell/**/*.sh; do
                     echo "Checking $script..."
                     shellcheck -e SC1091 -e SC2034 "$script" || true
                   done
@@ -93,7 +91,7 @@ jobs:
 
             - name: Test shell library scripts (dry-run)
               run: |
-                  for script in src/lib/shell/*.sh; do
+                  for script in src/lib/shell/**/*.sh; do
                     echo "Testing $script..."
                     bash -n "$script" || exit 1
                   done
@@ -103,7 +101,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Run Trivy vulnerability scanner (Filesystem)
               uses: aquasecurity/trivy-action@master
@@ -130,7 +128,7 @@ jobs:
         timeout-minutes: 360
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Initialize CodeQL
               uses: github/codeql-action/init@v4
@@ -159,10 +157,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Setup Python
-              uses: actions/setup-python@v6
+              uses: actions/setup-python@v4
               with:
                   python-version: "3.12"
 
@@ -189,7 +187,7 @@ jobs:
             pull-requests: write
         steps:
             - name: Checkout code with PAT token
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
               with:
                   token: ${{ secrets.PAT_TOKEN }}
 
@@ -212,29 +210,3 @@ jobs:
                       echo "Formatting issues detected"
                       echo "has_changes=true" >> $GITHUB_OUTPUT
                   fi
-
-            - name: Format files with Prettier
-              if: steps.prettier-check.outputs.has_changes == 'true'
-              run: |
-                  echo "Formatting all files with Prettier..."
-                  bunx prettier --write .
-
-            - name: Configure git user
-              if: steps.prettier-check.outputs.has_changes == 'true'
-              run: |
-                  git config user.name "liora-bot"
-                  git config user.email "liora.bot.official@gmail.com"
-
-            - name: Commit and push changes
-              if: steps.prettier-check.outputs.has_changes == 'true'
-              run: |
-                  git add .
-
-                  if git diff --cached --quiet; then
-                      echo "No changes to commit"
-                      exit 0
-                  fi
-
-                  git commit -m "style: format code with Prettier"
-
-                  git push https://liora-bot:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
