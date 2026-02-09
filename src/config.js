@@ -9,6 +9,7 @@
 
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
+import { registerSignalHandler } from "#lib/core/auth/config.js";
 
 /**
  * Encodes metadata values to binary format for SQLite storage
@@ -881,6 +882,36 @@ global.sqlite = sqlite;
  * @property {Object} timestamp - Startup timestamp
  */
 global.timestamp = { start: new Date() };
+
+function checkpointMainDB(mode = "PASSIVE") {
+    try {
+        const res = sqlite
+            .query(`PRAGMA wal_checkpoint(${mode});`)
+            .get();
+
+        logger.info(
+            {
+                db: "database.db",
+                mode,
+                log: res?.log,
+                checkpointed: res?.checkpointed,
+            },
+            "SQLite main DB checkpoint"
+        );
+    } catch (e) {
+        logger.error(e, "Main DB checkpoint failed");
+    }
+}
+
+// auto checkpoint DB
+setInterval(() => {
+    checkpointMainDB("PASSIVE");
+}, 60 * 60 * 1000);
+
+registerSignalHandler("main-db-shutdown", () => {
+    checkpointMainDB("FULL");
+    sqlite.close();
+});
 
 // Periodic cache monitoring
 setInterval(() => {

@@ -46,14 +46,37 @@ ${plugins.map((v, i) => `  \`\`\`${i + 1}.\`\`\` \`\`\`${v}\`\`\``).join('\n')}
   if (!file) return m.reply('Plugin tidak ditemukan')
 
   const target = path.join(PLUGIN_DIR, file)
+  
+  if (op === '+') {
+  if (!m.quoted || !m.quoted.text)
+    return m.reply('Reply kode plugin yang mau disimpan')
 
-  /* ===== LIHAT KODE + COPY BUTTON ===== */
+  const dir = path.dirname(target)
+  fs.mkdirSync(dir, { recursive: true })
+
+  fs.writeFileSync(target, m.quoted.text)
+
+  return m.reply(`✅ Plugin disimpan:\n${file}`)
+}
+
   if (op === '?') {
     if (!fs.existsSync(target))
       return m.reply('Plugin tidak ada')
 
     const code = fs.readFileSync(target, 'utf8')
     const sliced = code.slice(0, 4000)
+    
+    if (op === '+') {
+  if (!m.quoted || !m.quoted.text)
+    return m.reply('Reply kode plugin yang mau disimpan')
+
+  const dir = path.dirname(target)
+  fs.mkdirSync(dir, { recursive: true })
+
+  fs.writeFileSync(target, m.quoted.text)
+
+  return m.reply(`✅ Plugin disimpan:\n${file}`)
+}
 
     await conn.client(m.chat, {
       text:

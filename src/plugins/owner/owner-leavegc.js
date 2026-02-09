@@ -28,7 +28,7 @@
 let handler = async (m, { conn, text }) => {
     const gc = text || m.chat;
 
-    await conn.sendMessage(gc, { text: "Leaving group" });
+    await conn.sendMessage(gc, { text: "Oke cabut." });
     await conn.groupLeave(gc);
 };
 

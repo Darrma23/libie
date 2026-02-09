@@ -184,6 +184,7 @@ const SCHEMAS = {
       lastdaily: "INTEGER DEFAULT 0",
       lastweekly: "INTEGER DEFAULT 0",
       lastmonthly: "INTEGER DEFAULT 0",
+      lastgc: "INTEGER DEFAULT 0",
 
       lastfishing: "INTEGER DEFAULT 0",
       lastdagang: "INTEGER DEFAULT 0",

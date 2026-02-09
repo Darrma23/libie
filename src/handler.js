@@ -195,6 +195,16 @@ export async function handler(chatUpdate) {
 		if (!m || m.isBaileys) return;
 
 		const rpg = global.rpg.data.user[m.sender] || null;
+		
+		if (
+        m.isGroup &&
+        typeof m.text === 'string' &&
+        !CMD_PREFIX_RE.test(m.text.trim())
+      ) {
+        if (rpg) {
+          rpg.lastgc = Date.now()
+        }
+      }
 
 		if (!rpg.name && (m.pushName || m.name)) {
 			rpg.name = m.pushName || m.name;
@@ -436,6 +446,20 @@ export async function handler(chatUpdate) {
 				}
 
 				if (success) {
+				   const stats = global.db.data.stats || (global.db.data.stats = {})
+
+               if (!stats[m.plugin]) {
+                 stats[m.plugin] = {
+                   total: 0,
+                   success: 0,
+                   last: 0
+                 }
+               }
+               
+               stats[m.plugin].total += 1
+               stats[m.plugin].success += 1
+               stats[m.plugin].last = Date.now()
+
 					let xp = Number.isInteger(plugin.exp)
 						? plugin.exp
 						: 17;

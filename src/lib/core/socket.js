@@ -194,6 +194,18 @@ export function naruyaizumi(connectionOptions) {
          }
          })
  
+   const OWNER = '6289521010900@s.whatsapp.net'
+   
+   conn.ev.on('connection.update', (update) => {
+     const { connection, lastDisconnect } = update
+   
+     if (connection === 'open') {
+       conn.sendMessage(OWNER, {
+         text: `\`\`\`Bot Active.\`\`\``,
+       })
+     }
+   })
+ 
     // JID utilities
     conn.decodeJid = decodeJid;
 
