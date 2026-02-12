@@ -12,16 +12,16 @@ let handler = async (m, { groupMetadata, conn, command }) => {
     .map(p => p.id)
 
   let sider = []
-  let neverChat = []
   let report = []
 
   for (const jid of members) {
     const user = users[jid]
 
+    // belum pernah chat
     if (!user || !user.lastgc) {
-      neverChat.push(jid)
       report.push({
         jid,
+        lastgc: 0,
         status: 'tidak pernah chat'
       })
       continue
@@ -34,11 +34,13 @@ let handler = async (m, { groupMetadata, conn, command }) => {
       sider.push(jid)
       report.push({
         jid,
+        lastgc: user.lastgc,
         status: `${time} lalu (SIDER)`
       })
     } else {
       report.push({
         jid,
+        lastgc: user.lastgc,
         status: `${time} lalu`
       })
     }
@@ -47,14 +49,20 @@ let handler = async (m, { groupMetadata, conn, command }) => {
   if (!report.length)
     return m.reply('Tidak ada data aktivitas member.')
 
+  // 🔥 SORTING: TERBARU → TERLAMA
+  report.sort((a, b) => {
+    if (a.lastgc === 0) return 1
+    if (b.lastgc === 0) return -1
+    return b.lastgc - a.lastgc
+  })
+
   let text = `📊 *Aktivitas Member Grup*\n`
   text += `⏱️ Batas sider: *24 jam*\n\n`
 
-  for (let i = 0; i < report.length; i++) {
-    const v = report[i]
+  report.forEach((v, i) => {
     text += `${i + 1}. @${v.jid.split('@')[0]}\n`
     text += `   ▸ ${v.status}\n\n`
-  }
+  })
 
   await conn.reply(m.chat, text.trim(), m, {
     mentions: report.map(v => v.jid)
@@ -79,6 +87,7 @@ handler.botAdmin = true
 
 handler.desc = [
   'Menampilkan waktu terakhir chat seluruh member grup.',
+  'Diurutkan dari yang paling baru chat sampai yang paling lama.',
   'Member yang tidak aktif lebih dari 24 jam dianggap SIDER.',
   'Gunakan `outsider` untuk langsung mengeluarkan sider.'
 ]

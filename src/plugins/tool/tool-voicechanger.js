@@ -6,42 +6,55 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
   let q = m.quoted || m
   let mime = q.mimetype || q.msg?.mimetype || ''
 
-  if (!/audio/.test(mime))
-    throw `Balas VN / audio dengan caption *${usedPrefix + command}*`
+  if (!/audio/.test(mime)) {
+    return m.reply(
+      `Balas VN / audio dengan caption *${usedPrefix + command}*`
+    )
+  }
 
   let audio = await q.download()
-  if (!audio) throw 'Gagal download audio'
+  if (!audio) return m.reply('Gagal download audio')
 
   let filter = null
 
-  if (/bass/i.test(command)) filter = `-af equalizer=f=94:width_type=o:width=2:g=30`
-  else if (/blown/i.test(command)) filter = `-af acrusher=.1:1:64:0:log`
-  else if (/deep/i.test(command)) filter = `-af atempo=1,asetrate=44100*0.7`
-  else if (/earrape/i.test(command)) filter = `-af volume=20`
-  else if (/fast/i.test(command)) filter = `-af atempo=1.25`
-  else if (/fat/i.test(command)) filter = `-af atempo=1.6`
-  else if (/nightcore/i.test(command)) filter = `-af atempo=1.06,asetrate=44100*1.25`
-  else if (/reverse/i.test(command)) filter = `-filter_complex areverse`
+  if (/bass/i.test(command))
+    filter = `-af equalizer=f=94:width_type=o:width=2:g=30`
+  else if (/blown/i.test(command))
+    filter = `-af acrusher=.1:1:64:0:log`
+  else if (/deep/i.test(command))
+    filter = `-af atempo=1,asetrate=44100*0.7`
+  else if (/earrape/i.test(command))
+    filter = `-af volume=20`
+  else if (/fast/i.test(command))
+    filter = `-af atempo=1.25`
+  else if (/fat/i.test(command))
+    filter = `-af atempo=1.6`
+  else if (/nightcore/i.test(command))
+    filter = `-af atempo=1.06,asetrate=44100*1.25`
+  else if (/reverse/i.test(command))
+    filter = `-filter_complex areverse`
   else if (/robot/i.test(command))
     filter =
       `-filter_complex afftfilt=real='hypot(re,im)*sin(0)':imag='hypot(re,im)*cos(0)'`
-  else if (/slow/i.test(command)) filter = `-af atempo=0.7`
-  else if (/smooth/i.test(command)) filter = `-af afftdn`
+  else if (/slow/i.test(command))
+    filter = `-af atempo=0.7`
+  else if (/smooth/i.test(command))
+    filter = `-af afftdn`
   else if (/tupai|squirrel|chipmunk/i.test(command))
     filter = `-af atempo=0.5,asetrate=65100`
-  else if (/vibra/i.test(command)) filter = `-af vibrato=f=15`
+  else if (/vibra/i.test(command))
+    filter = `-af vibrato=f=15`
 
-  if (!filter) throw 'Efek audio tidak dikenal'
+  if (!filter) return m.reply('Efek audio tidak dikenal')
 
-  let tmpDir = './tmp'
+  const tmpDir = './tmp'
   await fs.mkdir(tmpDir, { recursive: true })
 
-  let id = Date.now()
-  let input = path.join(tmpDir, `${id}.input`)
-  let output = path.join(tmpDir, `${id}.mp3`)
+  const id = Date.now()
+  const input = path.join(tmpDir, `${id}.input`)
+  const output = path.join(tmpDir, `${id}.mp3`)
 
   await fs.writeFile(input, audio)
-
   await m.reply('⏳ Processing audio...')
 
   exec(`ffmpeg -y -i "${input}" ${filter} "${output}"`, async (err) => {
@@ -49,10 +62,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
 
     if (err) {
       await fs.unlink(output).catch(() => {})
-      throw 'Gagal memproses audio'
+      return m.reply('❌ Gagal memproses audio')
     }
 
-    let buff = await fs.readFile(output)
+    const buff = await fs.readFile(output)
 
     await conn.sendMessage(
       m.chat,
@@ -67,22 +80,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
     await fs.unlink(output).catch(() => {})
   })
 }
-
-handler.help = [
-  'bass',
-  'blown',
-  'deep',
-  'earrape',
-  'fast',
-  'fat',
-  'nightcore',
-  'reverse',
-  'robot',
-  'slow',
-  'smooth',
-  'tupai',
-  'vibra'
-]
 
 handler.help = [
   'bass',
