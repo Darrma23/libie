@@ -1,6 +1,6 @@
 {
     "name": "libie",
-    "version": "5.9.03",
+    "version": "1.0.0",
     "description": "Libie - Advanced WhatsApp Bot",
     "type": "module",
     "license": "Apache-2.0",
@@ -11,17 +11,19 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/naruyaizumi/liora.git"
+        "url": "https://github.com/darrma23/libie.git"
     },
-    "homepage": "https://github.com/naruyaizumi/liora#readme",
+    "homepage": "https://github.com/darrma23/libie#readme",
     "bugs": {
-        "url": "https://github.com/naruyaizumi/liora/issues"
+        "url": "https://github.com/darrma23/libie/issues"
     },
     "engines": {
         "bun": ">=1.3.0"
     },
     "scripts": {
-        "start": "bun run --smol src/main.js"
+        "start": "bun run --smol src/main.js",
+        "lint": "eslint ."
+        
     },
     "dependencies": {
         "@napi-rs/canvas": "^0.1.84",
