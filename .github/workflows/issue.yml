@@ -9,6 +9,7 @@ on:
 permissions:
     issues: write
     pull-requests: write
+    contents: read
 
 jobs:
     auto-label:
@@ -19,7 +20,7 @@ jobs:
             (github.event.action == 'opened' || github.event.action == 'edited')
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Auto label based on content
               uses: actions/github-script@v8
@@ -208,7 +209,7 @@ jobs:
             - name: Close stale issues
               uses: actions/stale@v10
               with:
-                  repo-token: ${{ secrets.PAT_TOKEN }}
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
                   stale-issue-message: |
                       ## 📅 This issue has been marked as stale
 
