@@ -193,6 +193,17 @@ export async function handler(chatUpdate) {
 
 		const m = smsg(this, messages[messages.length - 1]);
 		if (!m || m.isBaileys) return;
+		
+		if (m.chat) {
+        const isGroup = m.chat.endsWith("@g.us") ? 1 : 0
+      
+        global.db.data.chats[m.chat].isGroup = isGroup
+        global.db.data.chats[m.chat].lastActivity = Date.now()
+      
+        if (isGroup && (m.chatName || m.pushName)) {
+          global.db.data.chats[m.chat].name = m.chatName || "Group"
+        }
+      }
 
 		const rpg = global.rpg.data.user[m.sender] || null;
 		

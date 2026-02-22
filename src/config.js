@@ -523,6 +523,10 @@ const SCHEMAS = {
         columns: {
             jid: "TEXT PRIMARY KEY",
             mute: "INTEGER DEFAULT 0",
+
+            isGroup: "INTEGER DEFAULT 0",
+            name: "TEXT",
+            lastActivity: "INTEGER DEFAULT 0",
         },
         indices: ["CREATE INDEX IF NOT EXISTS idx_chats_jid ON chats(jid)"],
     },
