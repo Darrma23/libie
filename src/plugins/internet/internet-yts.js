@@ -1,76 +1,56 @@
-/**
- * @file YouTube search command handler
- * @module plugins/internet/yts
- * @license Apache-2.0
- * @author Naruya Izumi
- */
-
-/**
- * Searches for videos on YouTube
- * @async
- * @function handler
- * @param {Object} m - Message object
- * @param {Object} conn - Connection object
- * @param {string} text - Search query
- * @param {string} usedPrefix - Command prefix used
- * @param {string} command - Command name
- * @returns {Promise<void>}
- *
- * @description
- * Command to search for videos on YouTube using the nekolabs API.
- * Returns search results with interactive video selection interface.
- *
- * @features
- * - Searches YouTube videos using external API
- * - Displays video title, channel, and duration
- * - Shows video cover images
- * - Interactive selection interface
- * - Handles empty results gracefully
- */
-
 import { canvas } from "#canvas/yts.js";
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
     if (!text) {
-        return m.reply(`Need query\nEx: ${usedPrefix + command} neck deep`);
+        return m.reply(`Need query\nEx: ${usedPrefix + command} bmth`);
     }
 
     try {
         await global.loading(m, conn);
 
-        const url = `https://api.nekolabs.web.id/discovery/youtube/search?q=${encodeURIComponent(text)}`;
+        const url = `https://libieapiofficial.dpdns.org/tools/yts?q=${encodeURIComponent(text)}&limit=20`;
         const res = await fetch(url);
 
         if (!res.ok) {
-            throw new Error(`API failed: ${res.statusText}`);
+            throw new Error(`API failed: ${res.status} ${res.statusText}`);
         }
 
-        const data = await res.json();
+        const json = await res.json();
 
-        if (!data.success || !Array.isArray(data.result)) {
+        if (!json?.status || !Array.isArray(json?.data)) {
             throw new Error("Invalid API response");
         }
 
-        const vids = data.result;
+        const vids = json.data;
 
-        if (vids.length === 0) {
+        if (!vids.length) {
             return m.reply(`No results for "${text}"`);
         }
 
-        const imageBuffer = await canvas(vids, text);
+        // ✅ Normalize ringan → canvas-friendly & future-proof
+        const normalizedVideos = vids.map(v => ({
+            title: v.title,
+            channel: v.author,        // canvas fallback aman
+            thumbnail: v.thumbnail,   // canvas fallback aman
+            duration: v.duration,
+            views: v.views,
+            ago: v.ago
+        }));
+
+        const imageBuffer = await canvas(normalizedVideos, text);
 
         const rows = vids.map((v, i) => ({
             header: `Result ${i + 1}`,
             title: v.title,
-            description: `${v.channel} • ${v.duration || "-"}`,
-            id: `.play ${v.title}`,
+            description: `${v.author} • ${v.duration ?? "-"}`,
+            id: `.play ${v.url}`,
         }));
 
         await conn.client(m.chat, {
             image: imageBuffer,
-            caption: "*Select video above*",
+            caption: `🔎 Results for: *${text}*`,
             title: "YouTube Search",
-            footer: `Found ${vids.length} results`,
+            footer: `Found ${vids.length} videos`,
             interactiveButtons: [
                 {
                     name: "single_select",
@@ -78,29 +58,24 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
                         title: "Select Video",
                         sections: [
                             {
-                                title: `Results (${vids.length})`,
-                                rows: rows,
-                            },
-                        ],
+                                title: `Search Results (${vids.length})`,
+                                rows
+                            }
+                        ]
                     }),
-                },
+                }
             ],
             hasMediaAttachment: true,
         });
+
     } catch (e) {
-        global.logger.error(e);
+        global.logger.error("YTS ERROR:", e);
         m.reply(`Error: ${e.message}`);
     } finally {
         await global.loading(m, conn, true);
     }
 };
 
-/**
- * Command metadata for help system
- * @property {Array<string>} help - Help text
- * @property {Array<string>} tags - Command categories
- * @property {RegExp} command - Command pattern matching
- */
 handler.help = ["yts"];
 handler.tags = ["internet"];
 handler.command = /^(yts)$/i;

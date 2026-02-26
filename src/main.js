@@ -23,6 +23,7 @@ import {
     cleanupReconnect,
 } from "#core/connection.js";
 import { naruyaizumi } from "#core/socket.js";
+import { startNotifyServer } from "#lib/notifserver.js";
 
 /**
  * Pairing configuration from global config
@@ -248,6 +249,8 @@ async function LIORA() {
 
   global.conn = naruyaizumi(connectionOptions);
   global.conn.isInit = false;
+  
+startNotifyServer();
 
     // Handle pairing for new sessions
     if (!state.creds.registered && pairNum) {

@@ -30,7 +30,7 @@ EOF
     echo ""
     
     while true; do
-        printf "liora> "
+        printf "libie> "
         read -r choice < /dev/tty
         
         case "$choice" in
@@ -53,7 +53,7 @@ EOF
                 echo ""
                 
                 while true; do
-                    printf "liora> "
+                    printf "libie> "
                     read -r ver_choice < /dev/tty
                     
                     if [[ "$ver_choice" =~ ^[0-9]+$ ]] && [ "$ver_choice" -ge 1 ] && [ "$ver_choice" -le ${#VERSIONS[@]} ]; then
@@ -82,7 +82,7 @@ prompt_pairing() {
 EOF
     
     while true; do
-        printf "liora> Enter WhatsApp number (without +): "
+        printf "libie> Enter WhatsApp number (without +): "
         read -r PAIRING_NUM < /dev/tty
         
         if [[ "$PAIRING_NUM" =~ ^[0-9]{10,15}$ ]]; then
@@ -93,7 +93,7 @@ EOF
         fi
     done
     
-    printf "liora> Enter pairing code [default: CUMICUMI]: "
+    printf "libie> Enter pairing code [default: CUMICUMI]: "
     read -r PAIRING_CODE < /dev/tty
     PAIRING_CODE=${PAIRING_CODE:-CUMICUMI}
     print_success "Code: $PAIRING_CODE"
@@ -110,13 +110,13 @@ EOF
     
     OWNERS_ARRAY="[]"
     
-    printf "liora> Add owner numbers? [y/N]: "
+    printf "libie> Add owner numbers? [y/N]: "
     read -r add_owners < /dev/tty
     
     if [[ "$add_owners" =~ ^[Yy]$ ]]; then
         OWNER_LIST=()
         while true; do
-            printf "liora> Owner number (without + or blank to finish): "
+            printf "libie> Owner number (without + or blank to finish): "
             read -r owner_num < /dev/tty
             
             if [ -z "$owner_num" ]; then
@@ -184,9 +184,9 @@ PAIRING_CODE=$PAIRING_CODE
 # ============================================
 # BOT METADATA
 # ============================================
-WATERMARK=Liora
-AUTHOR=Naruya Izumi
-THUMBNAIL_URL=https://qu.ax/DdwBH.jpg
+WATERMARK=libie
+AUTHOR=Himejima
+THUMBNAIL_URL=https://files.catbox.moe/kn1jtb.jpg
 
 # ============================================
 # LOGGER CONFIGURATION

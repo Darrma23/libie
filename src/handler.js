@@ -1,6 +1,7 @@
 import { smsg } from "#core/smsg.js";
 import { join, dirname } from "node:path";
 import { getRoleByLevel } from "#db";
+import { createClient } from "redis";
 
 const CMD_PREFIX_RE = /^[/!.]/;
 
@@ -182,8 +183,79 @@ const resolveHelper = {
 	},
 };
 
+/* ================= REDIS REPORT LISTENER ================= */
+
+async function initRedisReportListener() {
+  if (global.reportSub) return;
+
+  const redis = createClient({
+    url: "redis://127.0.0.1:6379"
+  });
+
+  redis.on("error", err =>
+    console.error("Redis Bot Error:", err.message)
+  );
+
+  await redis.connect();
+  console.log("🟥 Bot Redis connected");
+
+  const sub = redis.duplicate();
+  await sub.connect();
+  
+  global.reportSub = true;
+
+  await sub.subscribe("reports", async (msg) => {
+  try {
+    console.log("📨 Redis msg:", msg);
+
+    if (!global.conn?.user) {
+      console.log("⚠ Bot belum ready");
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(msg);
+    } catch {
+      console.log("⚠ Invalid JSON:", msg);
+      return;
+    }
+
+    const time = new Date(data.timestamp || Date.now()).toLocaleString("id-ID", {
+     timeZone: "Asia/Jakarta"
+   });
+
+    const text =
+      `🚨 REPORT LIBIE API\n\n` +
+      `Type : ${data.type || "-"}\n` +
+      `Time : ${time}\n\n` +
+      `Pesan:\n${data.message || "-"}`;
+
+    const receivers = ["6289521010900"];
+    console.log("📨 Kirim ke:", receivers);
+
+    for (const number of receivers) {
+      const jid = number + "@s.whatsapp.net";
+
+      try {
+        await global.conn.sendMessage(jid, { text });
+        console.log("✅ Sent →", jid);
+      } catch (err) {
+        console.log("❌ Gagal →", jid, err.message);
+      }
+    }
+
+    console.log("📩 Report forwarded");
+
+  } catch (err) {
+    console.error("🔥 Redis handler error:", err.message);
+  }
+});
+}
+
 export async function handler(chatUpdate) {
 	try {
+	   await initRedisReportListener();
 		if (!chatUpdate) return;
 
       this.pushMessage(chatUpdate.messages);
@@ -231,9 +303,12 @@ export async function handler(chatUpdate) {
 			}
 
 			const newRole = getRoleByLevel(rpg.level);
+			const isChannel = m.chat?.endsWith("@newsletter");
 			if (rpg.role !== newRole) {
 				rpg.role = newRole;
-				await m.reply(`🎖️ Role naik: *${newRole}*`);
+				if (!isChannel) {
+             await m.reply(`🎖️ Role naik: *${newRole}*`);
+           }
 			}
 		}
 

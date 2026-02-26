@@ -184,7 +184,8 @@ export async function canvas(videos, query) {
     const thumbnails = await Promise.all(
         displayVideos.map(async (video) => {
             try {
-                return await loadImage(video.cover);
+                const thumbSrc = video.cover || video.thumbnail;
+                return thumbSrc ? await loadImage(thumbSrc) : null;
             } catch {
                 return null;
             }
@@ -221,7 +222,7 @@ export async function canvas(videos, query) {
     const w1 = drawInfoBadge(ctx, badgeX - 120, badgeY, `${totalVideos} results`, "#FF3B30");
     badgeX -= w1 + 15;
 
-    const totalChannels = new Set(videos.slice(0, 20).map((v) => v.channel)).size;
+    const totalChannels = new Set(videos.slice(0, 20).map(v => v.channel || v.author || "Unknown")).size;
     drawInfoBadge(ctx, badgeX - 130, badgeY, `${totalChannels} channels`, "#007AFF");
 
     const statsY = 200;
@@ -256,7 +257,7 @@ export async function canvas(videos, query) {
         },
         {
             title: "CHANNELS",
-            value: new Set(videos.slice(0, 20).map((v) => v.channel)).size.toString(),
+            value: new Set( videos.slice(0, 20).map(v => v.channel || v.author || "Unknown") ).size.toString(),
             color: "#FF9500",
         },
     ];
@@ -313,7 +314,7 @@ export async function canvas(videos, query) {
             ctx.restore();
 
             const video = displayVideos[i];
-            if (video.duration) {
+            if (video.duration && video.duration !== "-") {
                 const badgeW = 65;
                 const badgeH = 28;
                 const badgeX = x + videoCardW - 30 - badgeW - 5;
@@ -338,6 +339,7 @@ export async function canvas(videos, query) {
         ctx.textAlign = "left";
 
         let title = video.title;
+        const channel = video.channel || video.author || "Unknown";
         const maxTitleW = videoCardW - 40;
         let measuredWidth = ctx.measureText(title).width;
 
@@ -353,7 +355,7 @@ export async function canvas(videos, query) {
 
         ctx.fillStyle = "#666666";
         ctx.font = "bold 16px Cobbler";
-        ctx.fillText(video.channel, x + 20, infoY + 32);
+        ctx.fillText(channel, x + 20, infoY + 32);
 
         ctx.fillStyle = "#FF3B30";
         ctx.beginPath();

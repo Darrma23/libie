@@ -6,10 +6,10 @@ create_cli() {
     cat > "$HELPER_FILE" <<'EOFCLI'
 #!/bin/bash
 
-SERVICE="liora"
-WORK_DIR="/root/liora"
+SERVICE="libie"
+WORK_DIR="/root/libie"
 BUN_PATH="/root/.bun/bin/bun"
-REPO_URL="https://github.com/naruyaizumi/liora.git"
+REPO_URL="https://github.com/darrma23/libie.git"
 
 print_error() { echo "[ERROR] $1" >&2; }
 print_success() { echo "[SUCCESS] $1"; }
@@ -56,7 +56,7 @@ EOF
     if [ "$CURRENT" = "$LATEST" ]; then
         echo "You are already on the latest version!"
         echo ""
-        printf "liora> Show all versions? [y/N]: "
+        printf "libie> Show all versions? [y/N]: "
         read show_all
         [[ ! $show_all =~ ^[Yy]$ ]] && exit 0
     fi
@@ -68,7 +68,7 @@ EOF
     echo ""
     
     while true; do
-        printf "liora> "
+        printf "libie> "
         read choice
         
         case $choice in
@@ -91,7 +91,7 @@ EOF
                 echo ""
                 
                 while true; do
-                    printf "liora> "
+                    printf "libie> "
                     read ver_choice
                     
                     if [[ $ver_choice =~ ^[0-9]+$ ]] && [ $ver_choice -ge 1 ] && [ $ver_choice -le ${#VERSIONS[@]} ]; then
@@ -201,7 +201,7 @@ EOF
 
 +------------------------------------------+
 |                                          |
-|           LIORA BOT CLI                  |
+|           libie BOT CLI                  |
 |                                          |
 +------------------------------------------+
 

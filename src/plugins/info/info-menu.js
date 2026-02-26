@@ -209,7 +209,7 @@ async function main(conn, m, pkg, prefix, cmd, time) {
                     name: "cta_url",
                     buttonParamsJson: JSON.stringify({
                         display_text: "Script",
-                        url: "https://github.com/naruyaizumi/liora",
+                        url: "https://libieapiofficial.dpdns.org",
                     }),
                 },
             ],

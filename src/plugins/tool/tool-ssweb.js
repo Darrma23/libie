@@ -1,40 +1,41 @@
-let handler = async (m, { conn, args, usedPrefix, command }) => {
-    if (args.length === 0) {
-        return m.reply(
-            `Please provide a URL.\nExample: ${usedPrefix + command} https://example.com`
-        );
-    }
+let handler = async (m, { conn, text, usedPrefix, command }) => {
+  if (!text)
+    return m.reply(`URL mana?\nContoh:\n${usedPrefix + command} https://google.com`);
 
-    const url = args.join(" ");
+  if (!/^https?:\/\//.test(text))
+    return m.reply("Masukin URL yang valid (http/https)");
 
-    await global.loading(m, conn);
+  await global.loading(m, conn);
 
-    try {
-        const apiUrl = `https://api.nekolabs.web.id/tools/ssweb?url=${encodeURIComponent(url)}&device=desktop&fullPage=false`;
+  try {
+    const imageUrl = `https://image.thum.io/get/fullpage/${text}`;
 
-        const res = await fetch(apiUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!data.success || !data.result) throw new Error("No screenshot returned.");
+    const res = await fetch(imageUrl);
 
-        const imageUrl = data.result;
+    if (!res.ok)
+      throw new Error(`ThumIO HTTP ${res.status}`);
 
-        const caption = `
-Screenshot (DESKTOP)
-URL: ${url}
-`.trim();
+    const buffer = Buffer.from(await res.arrayBuffer());
 
-        await conn.sendMessage(m.chat, { image: { url: imageUrl }, caption }, { quoted: m });
-    } catch (e) {
-        global.logger.error(e);
-        m.reply(`Error: ${e.message}`);
-    } finally {
-        await global.loading(m, conn, true);
-    }
+    await conn.sendMessage(
+      m.chat,
+      {
+        image: buffer,
+        caption: `Screenshot Fullpage\n🔗 ${text}`,
+      },
+      { quoted: m }
+    );
+  } catch (e) {
+    global.logger.error(e);
+
+    m.reply(`Error screenshot:\n${e.message}`);
+  } finally {
+    await global.loading(m, conn, true);
+  }
 };
 
 handler.help = ["ssweb"];
 handler.tags = ["tools"];
-handler.command = /^(ssweb)$/i;
+handler.command = /^ssweb$/i;
 
 export default handler;
