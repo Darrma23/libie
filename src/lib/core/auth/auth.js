@@ -12,7 +12,7 @@ import { initAuthCreds } from "baileys";
 import { AsyncLocalStorage } from "async_hooks";
 import { Mutex } from "async-mutex";
 import PQueue from "p-queue";
-import db from "./core.js";
+import { createAuthDatabase } from "./core.js";
 import { makeKey, validateKey, validateValue } from "./config.js";
 
 /**
@@ -38,7 +38,7 @@ function delay(ms) {
  * Creates SQLite-based authentication state manager for Baileys
  * @export
  * @function useSQLiteAuthState
- * @param {string} _dbPath - Database file path (unused, uses global db)
+ * @param {string} dbPath - Path ke SQLite auth database
  * @param {Object} options - Transaction options
  * @returns {Object} Authentication state manager
  *
@@ -55,7 +55,8 @@ function delay(ms) {
  * - Retry logic for commit failures
  * - Automatic rollback on errors
  */
-export function useSQLiteAuthState(_dbPath, options = {}) {
+export function useSQLiteAuthState(dbPath, options = {}) {
+   const db = createAuthDatabase(dbPath);
     const txOptions = { ...DEFAULT_TRANSACTION_OPTIONS, ...options };
 
     let creds;

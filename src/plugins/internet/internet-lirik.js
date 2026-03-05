@@ -1,14 +1,13 @@
 const handler = async (m, { conn, text }) => {
   try {
     if (!text) {
-      return m.reply("Usage:\n.lyrics <song title>\nExample: .lyrics mawar hitam");
+      return m.reply("Usage:\n.lyrics <song title>\nExample: .lyrics faded");
     }
 
     await conn.sendPresenceUpdate("composing", m.chat);
 
-    // GANTI URL INI sesuai endpoint asli API lu
     const url =
-      "https://api.nekolabs.web.id/discovery/lyrics/search?q=" +
+      "https://libieapiofficial.dpdns.org/api/internet/lirik?q=" +
       encodeURIComponent(text);
 
     const res = await fetch(url);
@@ -16,30 +15,21 @@ const handler = async (m, { conn, text }) => {
 
     const json = await res.json();
 
-    if (!json.success || !Array.isArray(json.result) || !json.result.length) {
+    if (!json.status || !json.data) {
       return m.reply("Lyrics not found.");
     }
 
-    // Ambil result pertama (paling relevan)
-    const song = json.result[0];
+    const song = json.data;
 
-    const durationMin = song.duration
-      ? `${Math.floor(song.duration / 60)}:${String(
-          Math.floor(song.duration % 60)
-        ).padStart(2, "0")}`
-      : "-";
-
-    // Batasi lyrics biar ga jebol limit WA
     const lyrics =
-      song.plainLyrics?.length > 3500
-        ? song.plainLyrics.slice(0, 3500) + "\n\n[lyrics truncated]"
-        : song.plainLyrics || "Lyrics not available.";
+      song.lyrics?.length > 3500
+        ? song.lyrics.slice(0, 3500) + "\n\n[lyrics truncated]"
+        : song.lyrics || "Lyrics not available.";
 
     const message = [
-      `🎵 *${song.trackName || song.name}*`,
-      `👤 Artist: ${song.artistName}`,
-      `💿 Album: ${song.albumName || "-"}`,
-      `⏱ Duration: ${durationMin}`,
+      `🎵 *${song.title || "-"}*`,
+      `👤 Artist: ${song.artist || "-"}`,
+      `📅 Release: ${song.release_date || "-"}`,
       "",
       lyrics,
     ].join("\n");

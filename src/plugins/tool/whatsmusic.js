@@ -44,7 +44,7 @@ let handler = async (m, { conn }) => {
 
 		// hit API Libie
 		const res = await fetch(
-			`https://libieapiofficial.dpdns.org/tools/whatsmusic?url=${encodeURIComponent(mediaUrl)}`
+			`https://libieapiofficial.dpdns.org/api/tools/whatsmusic?url=${encodeURIComponent(mediaUrl)}`
 		);
 
 		const json = await res.json();

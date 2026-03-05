@@ -17,7 +17,7 @@ export async function imageToWebp(buffer, options = {}) {
     "-vcodec", "libwebp",
     "-vf",
     "scale=320:320:force_original_aspect_ratio=decrease," +
-    "pad=320:320:-1:-1:color=#00000000",
+    "pad=320:320:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
 
     "-q:v", String(quality),
     "-f", "webp",
@@ -53,7 +53,9 @@ export async function videoToWebp(buffer, options = {}) {
 
     "-t", String(maxDuration),
 
-    "-vf", `fps=${fps},scale=320:320:force_original_aspect_ratio=decrease`,
+    "-vf",
+    `fps=${fps},scale=320:320:force_original_aspect_ratio=decrease,` +
+    "pad=320:320:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
     "-loop", "0",
 
     "-vcodec", "libwebp",

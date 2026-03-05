@@ -1,72 +1,116 @@
-let handler = async (m, { conn, usedPrefix, command }) => {
-    const quoted = m.quoted ? m.quoted : m;
-    const mime = (quoted.msg || quoted).mimetype || "";
+import * as baileys from "baileys"
+import crypto from "crypto"
 
-    const textToParse = m.text || "";
-    const caption = textToParse.replace(new RegExp(`^[.!#/](${command})\\s*`, "i"), "").trim();
+async function groupStatus(conn, jid, content) {
+    const { backgroundColor } = content
+    delete content.backgroundColor
 
-    const jid = m.chat;
+    const inside = await baileys.generateWAMessageContent(content, {
+        upload: conn.waUploadToServer,
+        backgroundColor
+    })
+
+    const messageSecret = crypto.randomBytes(32)
+
+    const m = baileys.generateWAMessageFromContent(
+        jid,
+        {
+            messageContextInfo: {
+                messageSecret
+            },
+            groupStatusMessageV2: {
+                message: {
+                    ...inside,
+                    messageContextInfo: {
+                        messageSecret
+                    }
+                }
+            }
+        },
+        {}
+    )
+
+    await conn.relayMessage(jid, m.message, {
+        messageId: m.key.id
+    })
+
+    return m
+}
+
+const handler = async (m, { conn, prefix = ".", command }) => {
+    const quoted = m.quoted ? m.quoted : m
+    const mime = quoted.mimetype || quoted.msg?.mimetype || ""
+
+    const textToParse = m.text || m.body || ""
+    const caption = textToParse.replace(
+        new RegExp(`^\\${prefix}${command}\\s`, "i"),
+        ""
+    ).trim()
+
+    const jid = m.chat
 
     try {
         if (!mime && !caption) {
-            return m.reply(
-                `Reply to media or provide text.\nExamples: ${usedPrefix + command} Hello everyone! or ${usedPrefix + command} reply to image/video/audio`
-            );
+            return await m.reply(
+                `Reply media atau tambahkan teks.
+Contoh: ${prefix}${command} (reply image/video/audio) Hai ini saya`
+            )
         }
 
-        await global.loading(m, conn);
-
-        let payload = {};
+        let payload = {}
 
         if (/image/.test(mime)) {
-            const buffer = await quoted.download();
-            if (!buffer) return m.reply("Failed to download image.");
-
+            const buffer = await quoted.download()
             payload = {
                 image: buffer,
-                caption: caption || "",
-            };
-        } else if (/video/.test(mime)) {
-            const buffer = await quoted.download();
-            if (!buffer) return m.reply("Failed to download video.");
+                caption
+            }
 
+        } else if (/video/.test(mime)) {
+            const buffer = await quoted.download()
             payload = {
                 video: buffer,
-                caption: caption || "",
-            };
-        } else if (/audio/.test(mime)) {
-            const buffer = await quoted.download();
-            if (!buffer) return m.reply("Failed to download audio.");
+                caption
+            }
 
+        } else if (/audio/.test(mime)) {
+            const buffer = await quoted.download()
             payload = {
                 audio: buffer,
-                mimetype: "audio/mp4",
-            };
+                mimetype: "audio/ogg; codecs=opus"
+            }
+
         } else if (caption) {
             payload = {
                 text: caption,
-            };
+                backgroundColor: "#0B141A"
+            }
+
         } else {
-            return m.reply(
-                `Reply to media or provide text.\nExamples: ${usedPrefix + command} Hello everyone! or ${usedPrefix + command} reply to image/video/audio`
-            );
+            return await m.reply(
+                `Reply media atau tambahkan teks.
+Contoh: ${prefix}${command} (reply image/video/audio) Hai ini saya`
+            )
         }
 
-        await conn.sendGroupStatus(jid, payload);
+        await groupStatus(conn, jid, payload)
 
-        m.reply("Group status sent successfully.");
-    } catch (e) {
-        global.logger?.error(e);
-        m.reply(`Error: ${e.message}`);
-    } finally {
-        await global.loading?.(m, conn, true);
+        await conn.sendMessage(m.chat, {
+            react: {
+                text: "✅",
+                key: m.key
+            }
+        })
+
+    } catch (err) {
+        console.error("Error di .swgc:", err)
+        await m.reply("❌ Terjadi kesalahan saat mengirim status grup.")
     }
-};
+}
 
-handler.help = ["groupstatus"];
-handler.tags = ["owner"];
-handler.command = /^(statusgc|swgc)$/i;
-handler.owner = true;
-handler.group = true;
+handler.command = /^(upswgc|swgc|swgrup)$/i
+handler.help = ["swgc"]
+handler.tags = ["group"]
+handler.admin = true
 
-export default handler;
+export default handler

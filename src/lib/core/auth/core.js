@@ -752,35 +752,11 @@ class AuthDatabase {
     }
 }
 
-/**
- * Singleton database instance
- * @private
- * @type {AuthDatabase|null}
- */
-let dbInstance = null;
+const instances = new Map();
 
-/**
- * Gets or creates the singleton AuthDatabase instance
- * @function getAuthDatabase
- * @param {string} [dbPath=DEFAULT_DB] - Database file path
- * @param {Object} [options={}] - Configuration options
- * @returns {AuthDatabase} Singleton database instance
- *
- * @singletonPattern
- * - Creates instance if none exists
- * - Recreates if existing instance is disposed
- * - Returns existing instance otherwise
- */
-export function getAuthDatabase(dbPath = DEFAULT_DB, options = {}) {
-    if (!dbInstance || dbInstance.disposed) {
-        dbInstance = new AuthDatabase(dbPath, options);
+export function createAuthDatabase(dbPath = DEFAULT_DB, options = {}) {
+    if (!instances.has(dbPath)) {
+        instances.set(dbPath, new AuthDatabase(dbPath, options));
     }
-    return dbInstance;
+    return instances.get(dbPath);
 }
-
-/**
- * Default export - singleton instance getter
- * @default
- * @type {Function}
- */
-export default getAuthDatabase();

@@ -58,10 +58,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
         
         // build API url
         const apiUrl =
-            `https://api.nekolabs.web.id/canvas/meme` +
+            `https://libieapiofficial.dpdns.org/api/maker/smeme` +
             `?imageUrl=${encodeURIComponent(imageUrl)}` +
-            `&textT=${encodeURIComponent(top)}` +
-            `&textB=${encodeURIComponent(bottom)}`;
+            `&topText=${encodeURIComponent(top)}` +
+            `&bottomText=${encodeURIComponent(bottom)}`;
 
         // request to API
         const res = await fetch(apiUrl, {

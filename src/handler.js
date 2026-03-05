@@ -226,10 +226,11 @@ async function initRedisReportListener() {
    });
 
     const text =
-      `🚨 REPORT LIBIE API\n\n` +
-      `Type : ${data.type || "-"}\n` +
-      `Time : ${time}\n\n` +
-      `Pesan:\n${data.message || "-"}`;
+     `🚨 REPORT LIBIE API\n\n` +
+     `Type : ${data.type || "-"}\n` +
+     `IP   : ${data.ip || "-"}\n` +
+     `Time : ${time}\n\n` +
+     `Pesan:\n${data.message || "-"}`;
 
     const receivers = ["6289521010900"];
     console.log("📨 Kirim ke:", receivers);
@@ -277,7 +278,7 @@ export async function handler(chatUpdate) {
         }
       }
 
-		const rpg = global.rpg.data.user[m.sender] || null;
+		const rpg = global.rpg?.data?.user?.[m.sender];
 		
 		if (
         m.isGroup &&
@@ -289,7 +290,7 @@ export async function handler(chatUpdate) {
         }
       }
 
-		if (!rpg.name && (m.pushName || m.name)) {
+		if (!rpg?.name && (m.pushName || m.name)) {
 			rpg.name = m.pushName || m.name;
 		}
 
@@ -316,18 +317,28 @@ export async function handler(chatUpdate) {
 			global.db?.data?.settings?.[this.user.lid] || {};
 
 		const senderLid = await resolveLid(m.sender, this);
-		const owners = global.config.owner.map(o =>
-			o.toString().split("@")[0]
-		);
-
-		const isOwner =
-			m.fromMe || owners.includes(senderLid);
+		const mainOwners = global.config.owner.map(o =>o.toString().split("@")[0]);
+      
+      let isRowner = false;
+      let isOwner = false;
+      
+      if (this.isJadiBot) {
+        isRowner = mainOwners.includes(senderLid);
+        isOwner =
+          m.fromMe ||
+          senderLid === this.ownerLid;
+      } else {
+        isRowner =
+          m.fromMe ||
+          mainOwners.includes(senderLid);
+        isOwner = isRowner;
+      }
 
 		const isPremium =
 			isOwner ||
-			(rpg.premium === 1 &&
-				(rpg.premiumTime === 0 ||
-					rpg.premiumTime > Date.now()));
+			(rpg?.premium === 1 &&
+				(rpg?.premiumTime === 0 ||
+					rpg?.premiumTime > Date.now()));
 
 		let groupMetadata = {};
 		let participants = [];
@@ -450,7 +461,12 @@ export async function handler(chatUpdate) {
 
 				const fail = plugin.fail || global.dfail;
 
-				if (plugin.owner && !isOwner) {
+				if (plugin.rowner && !isRowner) {
+              fail("rowner", m, this);
+              continue;
+            }
+
+            if (plugin.owner && !isOwner) {
 					fail("owner", m, this);
 					continue;
 				}
@@ -470,13 +486,13 @@ export async function handler(chatUpdate) {
 					continue;
 				}
 
-				if (plugin.register && !rpg.registered) {
+				if (plugin.register && !rpg?.registered) {
 					return global.dfail("register", m, this);
 				}
 
-				if (plugin.level && rpg.level < plugin.level) {
+				if (plugin.level && (rpg?.level || 0) < plugin.level) {
 					await m.reply(
-						`Butuh level ${plugin.level}.\nLevel kamu ${rpg.level}`
+						`Butuh level ${plugin.level}.\nLevel kamu ${rpg?.level || 0}`
 					);
 					continue;
 				}
@@ -487,7 +503,7 @@ export async function handler(chatUpdate) {
 					cost = plugin.limit;
 
 				if (cost > 0 && !isPremium) {
-					if (rpg.user_limit < cost) {
+					if ((rpg?.user_limit || 0) < cost) {
 						return global.dfail("limit", m, this);
 					}
 				}
@@ -510,6 +526,7 @@ export async function handler(chatUpdate) {
 					groupMetadata,
 					user,
 					bot,
+					isRowner,
 					isOwner,
 					isRAdmin,
 					isAdmin,
@@ -531,7 +548,7 @@ export async function handler(chatUpdate) {
 					);
 				}
 
-				if (success) {
+				if (success && rpg) {
 				   const stats = global.db.data.stats || (global.db.data.stats = {})
 
                if (!stats[m.plugin]) {
@@ -565,7 +582,6 @@ export async function handler(chatUpdate) {
 						);
 					}
 				}
-
 				break;
 			}
 		}

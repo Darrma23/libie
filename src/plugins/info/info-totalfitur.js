@@ -31,7 +31,7 @@ let handler = async (m, { conn }) => {
     const tp = p.length;
 
     const t = `
-Liora Plugin Statistics
+Libie Plugin Statistics
 
 Total Features: ${tc}
 Total Categories: ${tt}

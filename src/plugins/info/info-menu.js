@@ -208,7 +208,7 @@ async function main(conn, m, pkg, prefix, cmd, time) {
                 {
                     name: "cta_url",
                     buttonParamsJson: JSON.stringify({
-                        display_text: "Script",
+                        display_text: "Official Api",
                         url: "https://libieapiofficial.dpdns.org",
                     }),
                 },
