@@ -32,7 +32,7 @@
 
 import os from "os";
 
-const CATS = ["ai", "downloader", "game", "rpg", "xp", "group", "info", "internet", "maker", "owner", "tools"];
+const CATS = ["ai", "downloader", "game", "rpg", "xp", "group", "info", "islami", "internet", "maker", "owner", "tools"];
 
 const META = {
     ai: "AI",
@@ -42,6 +42,7 @@ const META = {
     xp: "Exp",
     group: "Group",
     info: "Info",
+    islami: "Islami",
     internet: "Internet",
     maker: "Maker",
     owner: "Owner",

@@ -185,8 +185,18 @@ const resolveHelper = {
 
 /* ================= REDIS REPORT LISTENER ================= */
 
+const TYPE_META = {
+  error:   { emoji: "🔴", label: "Error Command" },
+  request: { emoji: "🟢", label: "Request Fitur" },
+  blocked: { emoji: "🟠", label: "Unblock Request" },
+  other:   { emoji: "🔵", label: "Laporan Lainnya" }
+};
+
+let redisListenerStarted = false;
+
 async function initRedisReportListener() {
-  if (global.reportSub) return;
+  if (redisListenerStarted) return;
+  redisListenerStarted = true;
 
   const redis = createClient({
     url: "redis://127.0.0.1:6379"
@@ -201,57 +211,40 @@ async function initRedisReportListener() {
 
   const sub = redis.duplicate();
   await sub.connect();
-  
-  global.reportSub = true;
 
   await sub.subscribe("reports", async (msg) => {
-  try {
     console.log("📨 Redis msg:", msg);
-
-    if (!global.conn?.user) {
-      console.log("⚠ Bot belum ready");
-      return;
-    }
 
     let data;
     try {
       data = JSON.parse(msg);
     } catch {
-      console.log("⚠ Invalid JSON:", msg);
-      return;
+      return console.log("⚠ Invalid JSON:", msg);
     }
+    const meta = TYPE_META[data.type] || TYPE_META.other;
 
-    const time = new Date(data.timestamp || Date.now()).toLocaleString("id-ID", {
-     timeZone: "Asia/Jakarta"
-   });
+    const time = new Date(data.timestamp || Date.now())
+      .toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
 
     const text =
-     `🚨 REPORT LIBIE API\n\n` +
-     `Type : ${data.type || "-"}\n` +
-     `IP   : ${data.ip || "-"}\n` +
-     `Time : ${time}\n\n` +
-     `Pesan:\n${data.message || "-"}`;
+`*🚨 REPORT LIBIE API*
 
-    const receivers = ["6289521010900"];
-    console.log("📨 Kirim ke:", receivers);
+> Type : ${meta.emoji} ${meta.label}
+> IP   : ${data.ip || "-"}
+> Time : ${time}
 
-    for (const number of receivers) {
-      const jid = number + "@s.whatsapp.net";
+Pesan:
+_*${data.message || "-"}*_`;
 
-      try {
-        await global.conn.sendMessage(jid, { text });
-        console.log("✅ Sent →", jid);
-      } catch (err) {
-        console.log("❌ Gagal →", jid, err.message);
-      }
+    const jid = "6289521010900@s.whatsapp.net";
+
+    try {
+      await global.conn.sendMessage(jid, { text });
+      console.log("✅ Sent →", jid);
+    } catch (err) {
+      console.log("❌ Gagal →", jid, err.message);
     }
-
-    console.log("📩 Report forwarded");
-
-  } catch (err) {
-    console.error("🔥 Redis handler error:", err.message);
-  }
-});
+  });
 }
 
 export async function handler(chatUpdate) {

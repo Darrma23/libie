@@ -5,12 +5,20 @@ import { dirname, join } from 'path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// kbbi.json satu folder dengan skata.js
-const kbbi = JSON.parse(
-    readFileSync(join(__dirname, 'kbbi.json'), 'utf-8')
-)
+let kbbi = []
+
+try {
+    kbbi = JSON.parse(
+        readFileSync(join(__dirname, 'kbbi.json'), 'utf-8')
+    )
+} catch {
+    console.error('kbbi.json gagal dibaca')
+}
+
+const kbbiSet = new Set(kbbi)
 
 function random(list) {
+    if (!list.length) return null
     return list[Math.floor(Math.random() * list.length)]
 }
 
@@ -21,16 +29,23 @@ function kata() {
     ])
 
     const res = kbbi.filter(v => v.startsWith(huruf))
+
+    if (!res.length) {
+        return { status:false, kata:null }
+    }
+
     return {
-        status: true,
+        status:true,
         kata: random(res)
     }
 }
 
 function cKata(input = '') {
+    input = String(input).toLowerCase()
+
     return {
-        creator: '@neoxrs – Recoded by Clicknetcafe',
-        status: kbbi.includes(input.toLowerCase())
+        creator:'@neoxrs – Recoded by Clicknetcafe',
+        status: kbbiSet.has(input)
     }
 }
 
