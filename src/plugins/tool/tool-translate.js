@@ -1,4 +1,4 @@
-import translate from 'translate-google-api'
+import translate from '@vitalets/google-translate-api'
 
 const DEFAULT_LANG = 'id'
 
