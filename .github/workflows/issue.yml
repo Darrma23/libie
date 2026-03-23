@@ -20,7 +20,7 @@ jobs:
             (github.event.action == 'opened' || github.event.action == 'edited')
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
 
             - name: Auto label based on content
               uses: actions/github-script@v8
