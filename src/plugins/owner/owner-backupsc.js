@@ -21,9 +21,9 @@ let handler = async (m, { conn }) => {
   await global.loading(m, conn);
 
   exec(cmd, async (err) => {
-    if (err) {
+    if (err && err.code !== 1) {
       console.error(err);
-      m.reply("Backup gagal.");
+      return m.reply("Backup gagal.");
     }
 
     await conn.sendMessage(
@@ -45,6 +45,6 @@ handler.help = ["backup"];
 handler.tags = ["owner"];
 handler.command = ["backup"];
 
-handler.owner = true
+handler.owner = true;
 
 export default handler;

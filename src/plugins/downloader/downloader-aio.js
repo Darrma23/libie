@@ -14,7 +14,7 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     try {
         const api = `https://api.zm.io.vn/v1/social/autolink?url=${encodeURIComponent(text)}`;
         const res = await fetch(api, {
-            headers: { apikey: "TrveEwAFsiyAMLEZcAq" }
+            headers: { apikey: "OOhel9rHHx2GX" }
         });
 
         if (!res.ok) throw `API error ${res.status}`;

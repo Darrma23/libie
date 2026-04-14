@@ -192,42 +192,44 @@ const TYPE_META = {
   other:   { emoji: "🔵", label: "Laporan Lainnya" }
 };
 
-let redisListenerStarted = false;
+let redisClient = null;
+let redisSubscriber = null;
 
 async function initRedisReportListener() {
-  if (redisListenerStarted) return;
-  redisListenerStarted = true;
+  if (redisClient) return;
 
-  const redis = createClient({
-    url: "redis://127.0.0.1:6379"
-  });
+  try {
+    redisClient = createClient({
+      url: "redis://127.0.0.1:6379"
+    });
 
-  redis.on("error", err =>
-    console.error("Redis Bot Error:", err.message)
-  );
+    // ✅ BENAR: redisClient, bukan redis
+    redisClient.on("error", err =>
+      console.error("Redis Bot Error:", err.message)
+    );
 
-  await redis.connect();
-  console.log("🟥 Bot Redis connected");
+    await redisClient.connect();
+    console.log("🟥 Bot Redis connected");
 
-  const sub = redis.duplicate();
-  await sub.connect();
+    // ✅ BENAR: redisClient.duplicate(), bukan redis.duplicate()
+    redisSubscriber = redisClient.duplicate();
+    await redisSubscriber.connect();
 
-  await sub.subscribe("reports", async (msg) => {
-    console.log("📨 Redis msg:", msg);
+    await redisSubscriber.subscribe("reports", async (msg) => {
+      console.log("📨 Redis msg:", msg);
 
-    let data;
-    try {
-      data = JSON.parse(msg);
-    } catch {
-      return console.log("⚠ Invalid JSON:", msg);
-    }
-    const meta = TYPE_META[data.type] || TYPE_META.other;
+      let data;
+      try {
+        data = JSON.parse(msg);
+      } catch {
+        return console.log("⚠ Invalid JSON:", msg);
+      }
 
-    const time = new Date(data.timestamp || Date.now())
-      .toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+      const meta = TYPE_META[data.type] || TYPE_META.other;
+      const time = new Date(data.timestamp || Date.now())
+        .toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
 
-    const text =
-`*🚨 REPORT LIBIE API*
+      const text = `*🚨 REPORT LIBIE API*
 
 > Type : ${meta.emoji} ${meta.label}
 > IP   : ${data.ip || "-"}
@@ -236,20 +238,26 @@ async function initRedisReportListener() {
 Pesan:
 _*${data.message || "-"}*_`;
 
-    const jid = "6289521010900@s.whatsapp.net";
+      const ownerJid = "6289521010900@s.whatsapp.net";
 
-    try {
-      await global.conn.sendMessage(jid, { text });
-      console.log("✅ Sent →", jid);
-    } catch (err) {
-      console.log("❌ Gagal →", jid, err.message);
-    }
-  });
+      try {
+        if (global.conn?.user?.id) {  // ✅ Cek connection
+          await global.conn.sendMessage(ownerJid, { text });
+          console.log("✅ Sent →", ownerJid);
+        }
+      } catch (err) {
+        console.log("❌ Gagal →", ownerJid, err.message);
+      }
+    });
+  } catch (err) {
+    console.error("Redis init error:", err.message);
+    redisClient = null;
+    redisSubscriber = null;
+  }
 }
 
 export async function handler(chatUpdate) {
 	try {
-	   await initRedisReportListener();
 		if (!chatUpdate) return;
 
       this.pushMessage(chatUpdate.messages);
@@ -283,7 +291,7 @@ export async function handler(chatUpdate) {
         }
       }
 
-		if (!rpg?.name && (m.pushName || m.name)) {
+		if (rpg && !rpg?.name && (m.pushName || m.name)) {
 			rpg.name = m.pushName || m.name;
 		}
 
@@ -349,9 +357,10 @@ export async function handler(chatUpdate) {
 				participants.map(p => [p.id, p])
 			);
 
-			const botId = this.decodeJid(this.user.lid);
+			const botId = this.decodeJid(this.user.id);
+         bot = participants.find(p =>
+           this.decodeJid(p.id) === botId) || {};
 			user = participantMap[m.sender] || {};
-			bot = participantMap[botId] || {};
 
 			isRAdmin = user?.admin === "superadmin";
 			isAdmin = isRAdmin || user?.admin === "admin";
@@ -537,7 +546,7 @@ export async function handler(chatUpdate) {
 				} catch (e) {
 					global.logger.error(e);
 					await safe(() =>
-						m.reply(`${error(e)}`)
+						m.reply(`❌ Error: ${e.message}`)
 					);
 				}
 

@@ -423,7 +423,7 @@ async function q() {
                                         type: "pix_static_code",
                                         pix_static_code: {
                                             merchant_name: "himejima",
-                                            key: "DU ./dev/code",
+                                            key: "Lern it, Break it, Improve Everyting",
                                             key_type: "EVP",
                                         },
                                     },

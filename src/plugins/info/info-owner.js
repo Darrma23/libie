@@ -2,7 +2,7 @@
  * @file Owner/creator information command handler
  * @module plugins/info/owner
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 /**
@@ -31,9 +31,9 @@ let handler = async (m, { conn }) => {
 VERSION:3.0
 N:;Himejima;;;
 FN:Himejima
-X-WA-BIZ-NAME:du ./dev/code
+X-WA-BIZ-NAME:Lern it, Break it, Improve Everyting
 X-WA-BIZ-DESCRIPTION:𝙊𝙬𝙣𝙚𝙧 𝙤𝙛 𝙇𝙞𝙗𝙞𝙚
-TEL;waid=6281933732553:+62 819-3373-2553
+TEL;waid=6289521010900:+62 895-2101-0900
 END:VCARD`;
 
     /*
@@ -45,7 +45,7 @@ END:VCARD`;
         },
         message: {
             contactMessage: {
-                displayName: "Naruya Izumi",
+                displayName: "Himejima",
                 vcard: v,
             },
         },
@@ -99,7 +99,7 @@ END:VCARD`;
                                         type: "pix_static_code",
                                         pix_static_code: {
                                             merchant_name: "himejima",
-                                            key: "du ./dev/code",
+                                            key: "Lern it Break it Improve Everyting",
                                             key_type: "EVP",
                                         },
                                     },
@@ -119,7 +119,7 @@ END:VCARD`;
         m.chat,
         {
             contacts: {
-                displayName: "Naruya Izumi",
+                displayName: "Himejima",
                 contacts: [{ vcard: v }],
             },
             contextInfo: {

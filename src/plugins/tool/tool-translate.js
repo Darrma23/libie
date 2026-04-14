@@ -1,17 +1,30 @@
-import translate from '@vitalets/google-translate-api'
+import pkg from '@vitalets/google-translate-api'
+const translate = pkg.translate || pkg.default || pkg
 
 const DEFAULT_LANG = 'id'
+
+// escape regex biar prefix aman
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 let handler = async (m, { args, usedPrefix, command }) => {
     let lang = args[0]
     let text = ''
 
-    // ambil teks TANPA rusak enter
+    // kalau ada lebih dari 1 arg → berarti ada lang + teks
     if (args.length > 1) {
+        const safePrefix = escapeRegex(usedPrefix)
         text = m.text.replace(
-            new RegExp(`^${usedPrefix}${command}\\s*${lang}\\s*`, 'i'),
+            new RegExp(`^${safePrefix}${command}\\s+${lang}\\s*`, 'i'),
             ''
         )
+    }
+
+    // kalau cuma 1 arg → anggap itu teks, bukan lang
+    if (args.length === 1) {
+        text = args[0]
+        lang = DEFAULT_LANG
     }
 
     // fallback ke reply
@@ -26,18 +39,21 @@ let handler = async (m, { args, usedPrefix, command }) => {
         )
     }
 
-    if (!lang || lang.length !== 2) {
+    // validasi bahasa (lebih fleksibel)
+    if (!lang || !/^[a-z-]+$/i.test(lang)) {
         lang = DEFAULT_LANG
     }
 
     try {
         const result = await translatePreserveLines(text, lang)
         m.reply(result)
-    } catch {
+    } catch (e) {
+        console.error('Translate error:', e)
         try {
             const fallback = await translatePreserveLines(text, DEFAULT_LANG)
             m.reply(fallback)
-        } catch {
+        } catch (err) {
+            console.error('Fallback error:', err)
             m.reply('Gagal menerjemahkan.')
         }
     }
@@ -50,21 +66,20 @@ handler.command = /^(tr(anslate)?)$/i
 export default handler
 
 /* =====================================================
-   HELPER: JAGA TATA LETAK (ENTER, BARIS, URUTAN)
+   HELPER: JAGA ENTER + PARALLEL BIAR GA LEMOT
 ===================================================== */
 
 async function translatePreserveLines(text, lang) {
     const lines = text.split('\n')
-    const out = []
 
-    for (const line of lines) {
-        if (!line.trim()) {
-            out.push('')
-            continue
-        }
-        const res = await translate(line, { to: lang })
-        out.push(res[0])
-    }
+    const results = await Promise.all(
+        lines.map(line => {
+            if (!line.trim()) return ''
+            return translate(line, { to: lang })
+                .then(res => res.text)
+                .catch(() => line) // fallback per baris biar ga hilang
+        })
+    )
 
-    return out.join('\n')
+    return results.join('\n')
 }
