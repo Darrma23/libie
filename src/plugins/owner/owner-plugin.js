@@ -16,9 +16,86 @@ function scanPlugins(dir, base = dir) {
 
 function resolvePlugin(file) {
   const target = path.resolve(PLUGIN_DIR, file)
-
   if (!target.startsWith(PLUGIN_DIR)) return null
   return target
+}
+
+// inject sendRichResponse (sekali aja, jangan spam define)
+async function ensureRich(conn) {
+  if (conn.sendRichResponse) return
+
+  conn.sendRichResponse = async (jid, data = {}, options = {}) => {
+    const { randomUUID } = await import('crypto')
+    const submessages = []
+    const sections = []
+
+    if (data.text) {
+      submessages.push({
+        messageType: 2,
+        messageText: data.text
+      })
+      sections.push({
+        view_model: {
+          primitive: {
+            text: data.text,
+            __typename: "GenAIMarkdownTextUXPrimitive"
+          },
+          __typename: "GenAISingleLayoutViewModel"
+        }
+      })
+    }
+
+    if (data.code) {
+      submessages.push({
+        messageType: 5,
+        codeMetadata: {
+          codeLanguage: data.code.language || "javascript",
+          codeBlocks: [
+            {
+              codeContent: data.code.code,
+              highlightType: 0
+            }
+          ]
+        }
+      })
+
+      sections.push({
+        view_model: {
+          primitive: {
+            language: data.code.language || "javascript",
+            code_blocks: [
+              { content: data.code.code, type: "DEFAULT" }
+            ],
+            __typename: "GenAICodeUXPrimitive"
+          },
+          __typename: "GenAISingleLayoutViewModel"
+        }
+      })
+    }
+
+    const unifiedResponseData = {
+      response_id: randomUUID(),
+      sections
+    }
+
+    const content = {
+      botForwardedMessage: {
+        message: {
+          richResponseMessage: {
+            messageType: 1,
+            submessages,
+            unifiedResponse: {
+              data: JSON.stringify(unifiedResponseData)
+            }
+          }
+        }
+      }
+    }
+
+    return await conn.relayMessage(jid, content, {
+      messageId: `RICH_${Date.now()}`
+    })
+  }
 }
 
 let handler = async (m, { text, conn }) => {
@@ -40,7 +117,7 @@ let handler = async (m, { text, conn }) => {
 *– Daftar Plugin:*
 ${plugins.map((v, i) => `  \`\`\`${i + 1}.\`\`\` \`\`\`${v}\`\`\``).join('\n')}
 `
-)
+    )
   }
 
   const [op, arg] = text.trim().split(/\s+/)
@@ -56,18 +133,19 @@ ${plugins.map((v, i) => `  \`\`\`${i + 1}.\`\`\` \`\`\`${v}\`\`\``).join('\n')}
   const target = resolvePlugin(file)
   if (!target) return m.reply('Path plugin tidak valid')
 
+  // ➕ tambah plugin
   if (op === '+') {
     if (!m.quoted?.text)
       return m.reply('Reply kode plugin yang mau disimpan')
 
     const dir = path.dirname(target)
     fs.mkdirSync(dir, { recursive: true })
-
     fs.writeFileSync(target, m.quoted.text)
 
     return m.reply(`✅ Plugin disimpan:\n${file}`)
   }
 
+  // ➖ hapus plugin
   if (op === '-') {
     if (!fs.existsSync(target))
       return m.reply('Plugin tidak ada')
@@ -77,28 +155,32 @@ ${plugins.map((v, i) => `  \`\`\`${i + 1}.\`\`\` \`\`\`${v}\`\`\``).join('\n')}
     return m.reply(`🗑 Plugin dihapus:\n${file}`)
   }
 
+  // ❓ ambil plugin (INI YANG DI-UPGRADE)
   if (op === '?') {
     if (!fs.existsSync(target))
       return m.reply('Plugin tidak ada')
 
-    const code = fs.readFileSync(target, 'utf8')
-    const sliced = code.slice(0, 4000)
+    await ensureRich(conn)
 
-    await conn.client(m.chat, {
-      text: `📄 Plugin: ${file}`,
-      title: 'Plugin Source',
-      footer: 'Klik untuk copy kode',
-      interactiveButtons: [
-        {
-          name: 'cta_copy',
-          buttonParamsJson: JSON.stringify({
-            display_text: 'Copy kode plugin',
-            copy_code: sliced
-          })
-        }
-      ],
-      hasMediaAttachment: false
-    })
+    const stats = fs.statSync(target)
+    const code = fs.readFileSync(target, 'utf8')
+
+    const caption = `
+*─── [ PLUGIN ANALYSIS ] ───*
+
+📁 Name: ${path.basename(file)}
+⚖️ Size: ${(stats.size / 1024).toFixed(2)} KB
+🧩 Ext: ${path.extname(file)}
+📍 Path: ${file}
+`.trim()
+
+    await conn.sendRichResponse(m.chat, {
+      text: caption,
+      code: {
+        code: code.slice(0, 8000),
+        language: "javascript"
+      }
+    }, { quoted: m })
 
     return
   }

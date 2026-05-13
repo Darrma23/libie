@@ -2,15 +2,15 @@
  * @file Plugin manager and connection lifecycle handler
  * @module core/connection
  * @description Plugin system manager, event handling, and connection lifecycle
- * management for Liora bot with automatic reconnection and hot-reload capabilities.
+ * management for Libie bot with automatic reconnection and hot-reload capabilities.
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 /* global conn */
 import { readdir, stat } from "node:fs/promises";
 import { join, relative, normalize } from "node:path";
-import { naruyaizumi } from "./socket.js";
+import { himejima } from "./socket.js";
 import chokidar from "chokidar";
 import { access } from "node:fs/promises";
 
@@ -576,7 +576,7 @@ export class EventManager {
                 }
 
                 // Create new connection
-                global.conn = naruyaizumi(connectionOptions);
+                global.conn = himejima(connectionOptions);
                 eventManager.isInit = true;
             }
 

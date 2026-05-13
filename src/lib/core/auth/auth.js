@@ -4,7 +4,7 @@
  * @description Production-grade authentication state persistence with transaction support,
  * connection pooling, and robust error handling for WhatsApp Web sessions.
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */

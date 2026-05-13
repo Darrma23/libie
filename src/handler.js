@@ -5,6 +5,11 @@ import { createClient } from "redis";
 
 const CMD_PREFIX_RE = /^[/!.]/;
 
+const normalizeJid = (jid = "") =>
+	String(jid)
+		.split("@")[0]
+		.split(":")[0];
+
 const safe = async (fn, fallback = undefined) => {
 	try {
 		return await fn();
@@ -78,28 +83,10 @@ const resolveLid = async (sender, conn) => {
 };
 
 const getGroupMetadata = async (conn, chat) => {
-	try {
-		const chatData = await conn.getChat(chat);
-		if (chatData?.metadata) return chatData.metadata;
-
-		const metadata = await safe(
-			() => conn.groupMetadata(chat),
-			{}
-		);
-
-		if (metadata && Object.keys(metadata).length > 0) {
-			await conn.setChat(chat, {
-				id: chat,
-				metadata,
-				isChats: true,
-				lastSync: Date.now(),
-			});
-		}
-
-		return metadata;
-	} catch {
-		return await safe(() => conn.groupMetadata(chat), {});
-	}
+	return await safe(
+		() => conn.groupMetadata(chat),
+		{}
+	);
 };
 
 const checkPermissions = (
@@ -171,7 +158,11 @@ const resolveHelper = {
 	sender(m, store = {}) {
 		const gm = m.isGroup ? store.groupMetadata : null;
 		const jid = m.sender;
-		const participant = gm?.participants?.find(p => p.id === jid);
+		const participant = gm?.participants?.find(
+		   p =>
+	      normalizeJid(p.id || p.jid || "") ===
+	      normalizeJid(jid)
+	      );
 
 		return {
 			pushName: m.pushName || "-",
@@ -271,6 +262,10 @@ export async function handler(chatUpdate) {
 		if (m.chat) {
         const isGroup = m.chat.endsWith("@g.us") ? 1 : 0
       
+      if (!global.db.data.chats[m.chat]) {
+         global.db.data.chats[m.chat] = {}
+         }
+         
         global.db.data.chats[m.chat].isGroup = isGroup
         global.db.data.chats[m.chat].lastActivity = Date.now()
       
@@ -318,7 +313,7 @@ export async function handler(chatUpdate) {
 			global.db?.data?.settings?.[this.user.lid] || {};
 
 		const senderLid = await resolveLid(m.sender, this);
-		const mainOwners = global.config.owner.map(o =>o.toString().split("@")[0]);
+		const mainOwners = (global.config.owner || []).map(o => o.toString().split("@")[0]);
       
       let isRowner = false;
       let isOwner = false;
@@ -351,23 +346,55 @@ export async function handler(chatUpdate) {
 		let isBotAdmin = false;
 
 		if (m.isGroup) {
-			groupMetadata = await getGroupMetadata(this, m.chat);
-			participants = groupMetadata?.participants || [];
-			participantMap = Object.fromEntries(
-				participants.map(p => [p.id, p])
-			);
-
-			const botId = this.decodeJid(this.user.id);
-         bot = participants.find(p =>
-           this.decodeJid(p.id) === botId) || {};
-			user = participantMap[m.sender] || {};
-
-			isRAdmin = user?.admin === "superadmin";
-			isAdmin = isRAdmin || user?.admin === "admin";
-			isBotAdmin =
-				bot?.admin === "admin" ||
-				bot?.admin === "superadmin";
-		}
+        groupMetadata = await getGroupMetadata(this, m.chat);
+        participants = groupMetadata?.participants || [];
+        participantMap = Object.fromEntries(
+           participants.map(p => [
+             normalizeJid(
+               this.decodeJid(p.id || p.jid || "")
+             ),
+             p
+           ])
+         );
+      
+        // ================= USER =================
+        user =
+           participantMap[
+             normalizeJid(
+               this.decodeJid(m.sender)
+             )
+           ] || {};
+         
+         isRAdmin = user?.admin === "superadmin";
+         isAdmin = isRAdmin || user?.admin === "admin";
+         
+         // ================= BOT =================
+         bot =
+           participantMap[
+             normalizeJid(
+               this.decodeJid(
+                 this.user.lid || this.user.id
+               )
+             )
+           ] || {};
+         
+         isBotAdmin =
+           ["admin", "superadmin"].includes(bot?.admin);
+         
+         // ================= DEBUG SAFETY =================
+         if (participants.length === 0) {
+           console.warn("⚠️ Participants kosong:", m.chat);
+         }
+         
+         if (participants.length > 0 && !bot?.id) {
+         console.warn("⚠️ Bot tidak ditemukan di participants", {
+           chat: m.chat,
+           botId: this.decodeJid(
+             this.user.lid || this.user.id
+           )
+         });
+         }
+      }
 
 		const __dirname = dirname(
 			Bun.fileURLToPath(import.meta.url)

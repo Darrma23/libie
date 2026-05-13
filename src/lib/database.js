@@ -8,19 +8,11 @@ const DB_PATH = join(process.cwd(), "src", "database", "database.db");
  * @private
  * @type {Database}
  */
-const sqlite = new Database(DB_PATH, {
-    create: true,
-    readwrite: true,
-});
-
-// Performance optimizations
-sqlite.exec("PRAGMA journal_mode = WAL");
-sqlite.exec("PRAGMA synchronous = NORMAL");
-sqlite.exec("PRAGMA cache_size = -8000");
-sqlite.exec("PRAGMA temp_store = MEMORY");
-sqlite.exec("PRAGMA mmap_size = 268435456");
-sqlite.exec("PRAGMA page_size = 4096");
-sqlite.exec("PRAGMA locking_mode = NORMAL");
+ 
+if (!global.sqlite) throw new Error("SQLite belum init");
+const sqlite = global.sqlite;
+const safeRun = global.safeRun || ((fn) => fn());
+const logger = global.logger;
 
 /**
  * Database table schemas
@@ -477,7 +469,7 @@ class DataWrapper {
 
                 deleteProperty: (_, jid) => {
                     if (typeof jid !== "string") return false;
-                    STMTS.deleteRow[table].run(jid);
+                    safeRun(() => STMTS.deleteRow[table].run(jid));
                     cache.delete(`${table}:${jid}`);
                     return true;
                 },
@@ -509,7 +501,7 @@ class DataWrapper {
                 // Update database
                 const stmt = STMTS.updateCol[table][prop];
                 if (stmt) {
-                    stmt.run(normalizedValue, jid);
+                    safeRun(() => stmt.run(normalizedValue, jid));
                     obj[prop] = normalizedValue;
                     return true;
                 }

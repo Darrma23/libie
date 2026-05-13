@@ -504,6 +504,28 @@ const sqlite = new Database(DB_PATH, {
     readwrite: true,
 });
 
+let writeQueue = Promise.resolve();
+
+function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+}
+
+function safeRun(fn, retries = 5) {
+    writeQueue = writeQueue.then(async () => {
+        for (let i = 0; i < retries; i++) {
+            try {
+                return fn();
+            } catch (e) {
+                if (!String(e).includes("locked")) throw e;
+                await sleep(50);
+            }
+        }
+        throw new Error("DB still locked after retries");
+    }).catch(err => logger.error(err, "DB Write Error"));
+
+    return writeQueue;
+}
+
 // Performance optimizations
 sqlite.exec("PRAGMA journal_mode = WAL");
 sqlite.exec("PRAGMA synchronous = NORMAL");
@@ -512,6 +534,7 @@ sqlite.exec("PRAGMA temp_store = MEMORY");
 sqlite.exec("PRAGMA mmap_size = 268435456");
 sqlite.exec("PRAGMA page_size = 4096");
 sqlite.exec("PRAGMA locking_mode = NORMAL");
+sqlite.exec("PRAGMA busy_timeout = 5000");
 
 /**
  * Database table schemas
@@ -821,11 +844,21 @@ class DataWrapper {
 
                 // Update database
                 const stmt = STMTS.updateCol[table][prop];
-                if (stmt) {
-                    stmt.run(normalizedValue, jid);
-                    obj[prop] = normalizedValue;
-                    return true;
-                }
+               if (stmt) {
+                   safeRun(() => {
+                       try {
+                           sqlite.exec("BEGIN IMMEDIATE");
+                           stmt.run(normalizedValue, jid);
+                           sqlite.exec("COMMIT");
+                       } catch (e) {
+                           sqlite.exec("ROLLBACK");
+                           throw e;
+                       }
+                   });
+
+    obj[prop] = normalizedValue;
+    return true;
+}
 
                 return false;
             },
@@ -879,6 +912,7 @@ const db = new DataWrapper();
  */
 global.db = db;
 global.sqlite = sqlite;
+global.safeRun = safeRun;
 
 /**
  * Global timestamp tracking
