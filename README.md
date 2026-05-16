@@ -235,12 +235,12 @@ OWNERS=["1234567890","1234567890"]
 
 # Pairing Configuration
 PAIRING_NUMBER=1234567890
-PAIRING_CODE=CUMICUMI
+PAIRING_CODE=LIBIEBOT
 
 # Bot Metadata
 WATERMARK=libie
-AUTHOR=Naruya Izumi
-THUMBNAIL_URL=https://
+AUTHOR=Himejima
+THUMBNAIL_URL=https://files.catbox.moe/kn1jtb.jpg
 
 # Logger Configuration
 LOG_LEVEL=info
@@ -321,7 +321,7 @@ Create a file in `/src/plugins/[category]/[name].js`:
  * @file Ping command handler
  * @module plugins/info/ping
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 let handler = async (m, { conn }) => {
@@ -547,7 +547,7 @@ _💖 Acknowledgments_
 
   <hr/>
 
-  <p><strong>Maintained by the libie community || <a href="https://github.com/darrma23">© 2024 - 2026 Naruya Izumi</a></strong></p>
+  <p><strong>Maintained by the libie community || <a href="https://github.com/darrma23">© 2024 - 2026 Himejima</a></strong></p>
   
 <br/><br/>
 
