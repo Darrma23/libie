@@ -3,13 +3,15 @@ import fs from "fs";
 
 let handler = async (m, { conn }) => {
 
-  const file = `libie.tar.gz`;
+  const file = "libie.tar.gz";
 
   const cmd = `
     tar \
-    --exclude=src/database/*.db-shm \
-    --exclude=src/database/*.db-wal \
+    --exclude='src/database/*' \
+    --exclude='jadibot/*' \
     -czf ${file} \
+    src/database \
+    jadibot \
     src \
     speed.py \
     package.json \
@@ -37,6 +39,7 @@ let handler = async (m, { conn }) => {
     );
 
     fs.unlinkSync(file);
+
     await global.loading(m, conn, true);
   });
 };
@@ -44,7 +47,6 @@ let handler = async (m, { conn }) => {
 handler.help = ["backup"];
 handler.tags = ["owner"];
 handler.command = ["backup"];
-
 handler.owner = true;
 
 export default handler;

@@ -1,81 +1,239 @@
-import { makeWASocket, DisconnectReason } from "baileys";
+import {
+  DisconnectReason
+} from "baileys";
+
 import { useSQLiteAuthState } from "#auth";
+import { himejima } from "#core/socket.js";
+
 import { join } from "node:path";
+import fs from "node:fs";
+
 import { Boom } from "@hapi/boom";
 
-export async function startJadiBot({ parentConn, m, sessionDir }) {
-  const dbPath = join(sessionDir, "auth.db");
+global.jadibots =
+  global.jadibots || {};
 
-  // WAJIB await (ini biang kerok ERROR kosong)
-  const { state, saveCreds } = await useSQLiteAuthState(dbPath);
+export default async function startJadiBot({
+  parentConn,
+  m,
+  sessionDir,
+  number
+}) {
 
-  const jadibotConn = makeWASocket({
+  const dbPath =
+    join(sessionDir, "auth.db");
+
+  const {
+    state,
+    saveCreds
+  } = await useSQLiteAuthState(dbPath);
+
+  /*
+   * pakai wrapper utama
+   * supaya semua helper ikut
+   */
+  const jadibotConn = himejima({
+
     auth: state,
+
     printQRInTerminal: false,
-    browser: ["Libie JadiBot", "Chrome", "1.0.0"],
+
+    // ngurangin sync aneh
+    syncFullHistory: false,
+
+    // jangan agresif online
+    markOnlineOnConnect: false,
+
+    browser: [
+      "Ubuntu",
+      "Chrome",
+      "20.0.04"
+    ]
   });
 
-  // Flag jadibot
+  /*
+   * flag jadibot
+   */
   jadibotConn.isJadiBot = true;
-  jadibotConn.ownerLid = m.sender.split("@")[0];
 
-  const number = m.sender.split("@")[0];
+  /*
+   * owner session
+   */
+  jadibotConn.ownerLid = number;
 
+  /*
+   * mode public
+   */
+  jadibotConn.public = true;
+
+  /*
+   * save creds
+   */
+  jadibotConn.ev.on(
+    "creds.update",
+    saveCreds
+  );
+
+  /*
+   * pairing code
+   */
   try {
-    // Pairing code
-    const code = await jadibotConn.requestPairingCode(number);
 
-    await parentConn.reply(
-      m.chat,
-      `🔑 *Pairing Code JadiBot*\n\n${code}\n\nMasukkan ke WhatsApp > Perangkat Tertaut`,
-      m
-    );
-  } catch (e) {
-    global.logger?.error(e);
-    await parentConn.reply(
-      m.chat,
-      `❌ Gagal ambil pairing code:\n${e.message}`,
-      m
-    );
-    return;
-  }
+    if (!state.creds.registered) {
 
-  // Save creds
-  jadibotConn.ev.on("creds.update", saveCreds);
+      // tunggu socket init
+      await new Promise(resolve =>
+        setTimeout(resolve, 2000)
+      );
 
-  // Connection updates
-  jadibotConn.ev.on("connection.update", ({ connection, lastDisconnect }) => {
-    if (connection === "open") {
-      parentConn.reply(m.chat, "✅ JadiBot connected", m);
+      const code =
+        await jadibotConn.requestPairingCode(
+          number
+        );
 
-      global.logger?.info(
-        { owner: jadibotConn.ownerLid },
-        "JadiBot connected"
+      await parentConn.reply(
+        m.chat,
+        `🔑 *Pairing Code JadiBot*\n\n${code}\n\nMasukkan ke:\nWhatsApp > Perangkat Tertaut`,
+        m
       );
     }
 
-    if (connection === "close") {
-      const reason = lastDisconnect?.error?.output?.statusCode;
+  } catch (e) {
 
-      if (reason === DisconnectReason.loggedOut) {
-        parentConn.reply(
+    console.error(e);
+
+    global.logger?.error(e);
+
+    try {
+
+      fs.rmSync(sessionDir, {
+        recursive: true,
+        force: true
+      });
+
+    } catch {}
+
+    await parentConn.reply(
+      m.chat,
+      `❌ Gagal membuat pairing code.\n\n${e.message}`,
+      m
+    );
+
+    return null;
+  }
+
+  /*
+   * connection update
+   */
+  jadibotConn.ev.on(
+    "connection.update",
+    async ({
+      connection,
+      lastDisconnect
+    }) => {
+
+      const reason =
+        new Boom(
+          lastDisconnect?.error
+        )?.output?.statusCode;
+
+      /*
+       * connected
+       */
+      if (connection === "open") {
+
+        global.jadibots[number] =
+          jadibotConn;
+
+        await parentConn.reply(
           m.chat,
-          "❌ JadiBot logout. Session invalid.",
+          "✅ JadiBot connected.",
           m
         );
 
-        global.logger?.warn(
-          { owner: jadibotConn.ownerLid },
-          "JadiBot logged out"
-        );
-      } else {
-        global.logger?.warn(
-          { reason },
-          "JadiBot disconnected"
+        global.logger?.info(
+          {
+            owner: number
+          },
+          "JadiBot connected"
         );
       }
+
+      /*
+       * disconnected
+       */
+      if (connection === "close") {
+
+        delete global.jadibots[number];
+
+        try {
+          jadibotConn.ws.close();
+        } catch {}
+
+        const loggedOut =
+          reason === DisconnectReason.loggedOut;
+
+        const invalidSession =
+          !state.creds.registered;
+
+        /*
+         * logout / session rusak
+         */
+        if (
+          loggedOut ||
+          invalidSession
+        ) {
+
+          try {
+
+            fs.rmSync(sessionDir, {
+              recursive: true,
+              force: true
+            });
+
+          } catch {}
+
+          await parentConn.reply(
+            m.chat,
+            "❌ JadiBot logout.\nSession dihapus.",
+            m
+          );
+
+          global.logger?.warn(
+            {
+              owner: number,
+              reason
+            },
+            "JadiBot logged out"
+          );
+
+          return;
+        }
+
+        /*
+         * reconnect
+         */
+        global.logger?.warn(
+          {
+            owner: number,
+            reason
+          },
+          "JadiBot reconnecting..."
+        );
+
+        setTimeout(() => {
+
+          startJadiBot({
+            parentConn,
+            m,
+            sessionDir,
+            number
+          });
+
+        }, 5000);
+      }
     }
-  });
+  );
 
   return jadibotConn;
 }
