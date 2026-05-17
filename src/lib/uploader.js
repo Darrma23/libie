@@ -5,368 +5,452 @@
  * @author Naruya Izumi
  */
 
-/* global conn */
 import { fileTypeFromBuffer } from "file-type";
 
 /**
- * Common HTTP headers for upload requests
- * @constant {Object} HEADERS
+ * Basic headers
  */
 const HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Cache-Control": "no-cache",
-    Pragma: "no-cache",
-    "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120"',
-    "Sec-Ch-Ua-Mobile": "?0",
-    "Sec-Ch-Ua-Platform": '"macOS"',
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0",
+    Accept: "*/*",
 };
 
 /**
- * Catbox.moe file uploader
- * @async
- * @function uploader1
- * @param {Buffer} buf - File buffer
- * @returns {Promise<string>} Direct file URL
+ * Max upload size
+ * 200 MB
  */
-async function uploader1(buf) {
+const MAX_SIZE = 200 * 1024 * 1024;
+
+/**
+ * Logger helper
+ */
+function logError(logger, msg) {
+    logger?.error?.(msg);
+}
+
+/**
+ * Validate buffer
+ */
+function validateBuffer(buf) {
+    if (!Buffer.isBuffer(buf)) {
+        throw new Error("Input must be Buffer");
+    }
+
+    if (!buf.length) {
+        throw new Error("Empty buffer");
+    }
+
+    if (buf.length > MAX_SIZE) {
+        throw new Error("File too large");
+    }
+}
+
+/**
+ * Get safe file type
+ */
+async function getFileType(buf) {
+    const type = await fileTypeFromBuffer(buf);
+
+    return (
+        type || {
+            ext: "bin",
+            mime: "application/octet-stream",
+        }
+    );
+}
+
+/**
+ * Validate URL
+ */
+function validateUrl(url) {
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
+        const parsed = new URL(url);
 
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+            return false;
+        }
 
-        const form = new FormData();
-        form.append("reqtype", "fileupload");
-        const blob = new Blob([buf], { type: type.mime });
-        form.append("fileToUpload", blob, `file.${type.ext}`);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
+/**
+ * Create blob form
+ */
+function createForm(field, buf, type) {
+    const form = new FormData();
+
+    const blob = new Blob([buf], {
+        type: type.mime,
+    });
+
+    form.append(field, blob, `file.${type.ext}`);
+
+    return form;
+}
+
+/**
+ * Fetch JSON safely
+ */
+async function safeJson(res) {
+    const text = await res.text();
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error(`Invalid JSON response: ${text.slice(0, 120)}`);
+    }
+}
+
+/**
+ * Catbox uploader
+ */
+async function uploader1(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
+    const form = new FormData();
+
+    form.append("reqtype", "fileupload");
+
+    const blob = new Blob([buf], {
+        type: type.mime,
+    });
+
+    form.append("fileToUpload", blob, `file.${type.ext}`);
+
+    try {
         const res = await fetch("https://catbox.moe/user/api.php", {
             method: "POST",
-            headers: HEADERS,
             body: form,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
 
-        const txt = await res.text();
-        if (!txt.startsWith("http")) throw new Error("Invalid response");
+        const text = (await res.text()).trim();
 
-        return txt.trim();
+        if (!validateUrl(text)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return text;
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `Catbox: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Uguu.se file uploader
- * @async
- * @function uploader2
- * @param {Buffer} buf - File buffer
- * @returns {Promise<string>} Direct file URL
+ * Uguu uploader
  */
-async function uploader2(buf) {
+async function uploader2(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
+    const form = createForm("files[]", buf, type);
+
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
-
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
-
-        const form = new FormData();
-        const blob = new Blob([buf], { type: type.mime });
-        form.append("files[]", blob, `file.${type.ext}`);
-
         const res = await fetch("https://uguu.se/upload.php", {
             method: "POST",
-            headers: HEADERS,
             body: form,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
 
-        const json = await res.json();
-        if (!json?.files?.[0]?.url) throw new Error("Invalid response");
+        const json = await safeJson(res);
 
-        return json.files[0].url.trim();
+        const url = json?.files?.[0]?.url;
+
+        if (!validateUrl(url)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return url.trim();
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `Uguu: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Qu.ax file uploader
- * @async
- * @function uploader3
- * @param {Buffer} buf - File buffer
- * @returns {Promise<string>} Direct file URL
+ * Qu.ax uploader
  */
-async function uploader3(buf) {
+async function uploader3(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
+    const form = createForm("files[]", buf, type);
+
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
-
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
-
-        const form = new FormData();
-        const blob = new Blob([buf], { type: type.mime });
-        form.append("files[]", blob, `file.${type.ext}`);
-
         const res = await fetch("https://qu.ax/upload.php", {
             method: "POST",
-            headers: HEADERS,
             body: form,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
 
-        const json = await res.json();
-        if (!json?.files?.[0]?.url) throw new Error("Invalid response");
+        const json = await safeJson(res);
 
-        return json.files[0].url.trim();
+        if (!Array.isArray(json?.files)) {
+            throw new Error("Invalid files array");
+        }
+
+        const url = json.files[0]?.url;
+
+        if (!validateUrl(url)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return url.trim();
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `Qu.ax: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Put.icu direct PUT uploader
- * @async
- * @function uploader4
- * @param {Buffer} buf - File buffer
- * @returns {Promise<string>} Direct file URL
+ * Put.icu uploader
  */
-async function uploader4(buf) {
+async function uploader4(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
-
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
-
         const res = await fetch("https://put.icu/upload/", {
             method: "PUT",
             headers: {
                 ...HEADERS,
                 "Content-Type": type.mime,
-                Accept: "application/json",
             },
             body: buf,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errText.slice(0, 100)}`);
+        }
 
-        const json = await res.json();
-        if (!json?.direct_url) throw new Error("Invalid response");
+        const json = await safeJson(res);
 
-        return json.direct_url.trim();
+        const url = json?.direct_url;
+
+        if (!validateUrl(url)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return url.trim();
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `Put.icu: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Tmpfiles.org file uploader
- * @async
- * @function uploader5
- * @param {Buffer} buf - File buffer
- * @returns {Promise<string>} Direct file URL
+ * Tmpfiles uploader
  */
-async function uploader5(buf) {
+async function uploader5(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
+    const form = createForm("file", buf, type);
+
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
-
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
-
-        const form = new FormData();
-        const blob = new Blob([buf], { type: type.mime });
-        form.append("file", blob, `file.${type.ext}`);
-
         const res = await fetch("https://tmpfiles.org/api/v1/upload", {
             method: "POST",
-            headers: HEADERS,
             body: form,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
 
-        const json = await res.json();
-        if (!json?.data?.url) throw new Error("Invalid response");
+        const json = await safeJson(res);
 
-        return json.data.url.replace("/file/", "/dl/").trim();
+        let url = json?.data?.url;
+
+        if (!url) {
+            throw new Error("Missing URL");
+        }
+
+        url = url.replace("/file/", "/dl/");
+
+        if (!validateUrl(url)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return url.trim();
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `Tmpfiles: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Video-specific uploader (Videy)
- * @async
- * @function uploader6
- * @param {Buffer} buf - Video buffer
- * @returns {Promise<string>} Direct video URL
+ * Videy uploader
  */
-async function uploader6(buf) {
+async function uploader6(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
+    if (!type.mime.startsWith("video/")) {
+        throw new Error("Need video");
+    }
+
+    const form = createForm("file", buf, type);
+
+    form.append("apikey", "freeApikey");
+
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
-
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
-
-        if (!type.mime.startsWith("video/")) {
-            throw new Error("Need video");
-        }
-
-        const form = new FormData();
-        const blob = new Blob([buf], { type: type.mime });
-        form.append("file", blob, `file.${type.ext}`);
-        form.append("apikey", "freeApikey");
-
         const res = await fetch("https://anabot.my.id/api/tools/videy", {
             method: "POST",
-            headers: { Accept: "*/*" },
             body: form,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const json = await res.json();
-        if (!json?.success || !json?.data?.result?.link) {
-            throw new Error("Invalid response");
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
         }
 
-        return json.data.result.link.trim();
+        const json = await safeJson(res);
+
+        const url = json?.data?.result?.link;
+
+        if (!validateUrl(url)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return url.trim();
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `Videy: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Image-specific uploader (GoFile)
- * @async
- * @function uploader7
- * @param {Buffer} buf - Image buffer
- * @returns {Promise<string>} Direct image URL
+ * GoFile uploader
  */
-async function uploader7(buf) {
+async function uploader7(buf, logger = console) {
+    validateBuffer(buf);
+
+    const type = await getFileType(buf);
+
+    if (!type.mime.startsWith("image/")) {
+        throw new Error("Need image");
+    }
+
+    const form = createForm("file", buf, type);
+
+    form.append("apikey", "freeApikey");
+
     try {
-        if (!buf || buf.length === 0) throw new Error("Empty buffer");
-
-        const type = await fileTypeFromBuffer(buf);
-        if (!type) throw new Error("Unknown file type");
-
-        if (!type.mime.startsWith("image/")) {
-            throw new Error("Need image");
-        }
-
-        const form = new FormData();
-        const blob = new Blob([buf], { type: type.mime });
-        form.append("file", blob, `file.${type.ext}`);
-        form.append("apikey", "freeApikey");
-
         const res = await fetch("https://anabot.my.id/api/tools/goFile", {
             method: "POST",
-            headers: { Accept: "*/*" },
             body: form,
             signal: AbortSignal.timeout(60000),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const json = await res.json();
-        if (!json?.success || !json?.data?.result?.imageUrl) {
-            throw new Error("Invalid response");
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
         }
 
-        return json.data.result.imageUrl.trim();
+        const json = await safeJson(res);
+
+        const url = json?.data?.result?.imageUrl;
+
+        if (!validateUrl(url)) {
+            throw new Error("Invalid response URL");
+        }
+
+        return url.trim();
     } catch (e) {
-        conn?.logger?.error(e.message);
+        logError(logger, `GoFile: ${e.message}`);
         throw e;
     }
 }
 
 /**
- * Main uploader function with fallback providers
- * @async
- * @function uploader
- * @param {Buffer} buf - File buffer to upload
- * @returns {Promise<Object>} Upload result with URL and provider info
+ * Main uploader
  */
-async function uploader(buf) {
+async function uploader(buf, logger = console) {
+    validateBuffer(buf);
+
     const providers = [
-        { name: "Catbox", fn: uploader1 },
-        { name: "Uguu", fn: uploader2 },
-        { name: "Qu.ax", fn: uploader3 },
-        { name: "Put.icu", fn: uploader4 },
-        { name: "Tmpfiles", fn: uploader5 },
-    ];
+       { name: "Qu.ax", fn: uploader3 },
+       { name: "Catbox", fn: uploader1 },
+       { name: "Uguu", fn: uploader2 },
+       { name: "Put.icu", fn: uploader4 },
+       { name: "Tmpfiles", fn: uploader5 },
+   ];
 
     const attempts = [];
 
-    for (const prov of providers) {
+    const tasks = providers.map(async (prov) => {
         try {
-            const url = await prov.fn(buf);
-
-            if (url && typeof url === "string" && url.startsWith("http")) {
-                attempts.push({
-                    provider: prov.name,
-                    status: "success",
-                    url,
-                });
-
-                return {
-                    success: true,
-                    url,
-                    provider: prov.name,
-                    attempts,
-                };
-            }
+            const url = await prov.fn(buf, logger);
 
             attempts.push({
                 provider: prov.name,
-                status: "invalid",
+                status: "success",
+                url,
             });
+
+            return {
+                success: true,
+                url,
+                provider: prov.name,
+                attempts,
+            };
         } catch (e) {
             attempts.push({
                 provider: prov.name,
                 status: "error",
                 error: e.message,
             });
-            conn?.logger?.error(`${prov.name}: ${e.message}`);
-            continue;
+
+            throw e;
         }
+    });
+
+    try {
+        return await Promise.any(tasks);
+    } catch {
+        logError(logger, "All uploaders failed");
+
+        return {
+            success: false,
+            url: null,
+            provider: null,
+            attempts,
+        };
     }
-
-    conn?.logger?.error("All uploaders failed");
-    attempts.forEach((a) => conn?.logger?.error(`  - ${a.provider}: ${a.status}`));
-
-    return {
-        success: false,
-        url: null,
-        provider: null,
-        attempts,
-    };
 }
 
-/**
- * Module exports
- */
-export { uploader1, uploader2, uploader3, uploader4, uploader5, uploader6, uploader7, uploader };
+export {
+    uploader1,
+    uploader2,
+    uploader3,
+    uploader4,
+    uploader5,
+    uploader6,
+    uploader7,
+    uploader,
+};

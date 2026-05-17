@@ -449,32 +449,35 @@ export default function bind(conn) {
      * @param {string} data.type - Update type (notify, append, replace)
      */
     conn.ev.on("messages.upsert", ({ messages, type }) => {
-        memoryStore.enqueueEvent("messages.upsert", { messages, type }, EVENT_PRIORITY.CORE);
-
-        try {
-            for (const msg of messages) {
-                const chatId = msg.key?.remoteJid;
-                const messageId = msg.key?.id;
-
-                if (!chatId || !messageId || chatId === "status@broadcast") continue;
-
-                conn.setMessage(chatId, messageId, msg);
-
-                // Update chat metadata
-                let chat = conn.getChat(chatId) || { id: chatId };
-                chat.conversationTimestamp = msg.messageTimestamp;
-                chat.isChats = true;
-
-                if (!msg.key?.fromMe) {
-                    chat.unreadCount = (chat.unreadCount || 0) + 1;
-                }
-
-                conn.setChat(chatId, chat);
-            }
-        } catch (e) {
-            global.logger?.error(e);
-        }
-    });
+       memoryStore.enqueueEvent("messages.upsert", { messages, type }, EVENT_PRIORITY.CORE);
+   
+       try {
+           for (const msg of messages) {
+   
+               // anti respon pesan sendiri
+               if (msg.key?.fromMe) continue
+   
+               const chatId = msg.key?.remoteJid;
+               const messageId = msg.key?.id;
+   
+               if (!chatId || !messageId || chatId === "status@broadcast") continue;
+   
+               conn.setMessage(chatId, messageId, msg);
+   
+               let chat = conn.getChat(chatId) || { id: chatId };
+               chat.conversationTimestamp = msg.messageTimestamp;
+               chat.isChats = true;
+   
+               if (!msg.key?.fromMe) {
+                   chat.unreadCount = (chat.unreadCount || 0) + 1;
+               }
+   
+               conn.setChat(chatId, chat);
+           }
+       } catch (e) {
+           global.logger?.error(e);
+       }
+   });
 
     /**
      * Handles message updates (status changes, edits)

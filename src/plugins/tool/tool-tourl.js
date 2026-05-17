@@ -1,32 +1,8 @@
 /**
- * @file File upload to various servers command handler
+ * @file Advanced multi uploader command
  * @module plugins/tools/upload
  * @license Apache-2.0
- * @author Naruya Izumi
- */
-
-/**
- * Uploads files to various hosting servers and returns URLs
- * @async
- * @function handler
- * @param {Object} m - Message object
- * @param {Object} conn - Connection object
- * @param {Array} args - Command arguments
- * @param {string} usedPrefix - Command prefix used
- * @param {string} command - Command name
- * @returns {Promise<void>}
- *
- * @description
- * Command to upload media files to various hosting servers and return shareable URLs.
- * Supports multiple servers with automatic fallback and interactive copy buttons.
- *
- * @features
- * - Uploads to 7 different hosting servers
- * - Shows server list when no server specified
- * - Automatic fallback if primary server fails
- * - Displays file size information
- * - Interactive copy buttons for URLs
- * - Supports all media types (images, videos, documents)
+ * @author Himejima
  */
 
 import {
@@ -40,100 +16,103 @@ import {
     uploader,
 } from "#lib/uploader.js";
 
+/**
+ * Upload servers
+ * Qu.ax prioritized
+ */
 const servers = {
-    1: { name: "Catbox.moe", fn: uploader1 },
-    2: { name: "Uguu.se", fn: uploader2 },
-    3: { name: "Qu.ax", fn: uploader3 },
-    4: { name: "Put.icu", fn: uploader4 },
-    5: { name: "Tmpfiles.org", fn: uploader5 },
-    6: { name: "Videy", fn: uploader6 },
-    7: { name: "GoFile", fn: uploader7 },
+    1: {
+        name: "Qu.ax",
+        fn: uploader3,
+        types: ["all"],
+    },
+
+    2: {
+        name: "Catbox.moe",
+        fn: uploader1,
+        types: ["all"],
+    },
+
+    3: {
+        name: "Uguu.se",
+        fn: uploader2,
+        types: ["all"],
+    },
+
+    4: {
+        name: "Put.icu",
+        fn: uploader4,
+        types: ["all"],
+    },
+
+    5: {
+        name: "Tmpfiles.org",
+        fn: uploader5,
+        types: ["all"],
+    },
+
+    6: {
+        name: "Videy",
+        fn: uploader6,
+        types: ["video"],
+    },
+
+    7: {
+        name: "GoFile",
+        fn: uploader7,
+        types: ["image"],
+    },
 };
 
-let handler = async (m, { conn, args, usedPrefix, command }) => {
-    const q = m.quoted?.mimetype ? m.quoted : m;
-    const mime = (q.msg || q).mimetype || q.mediaType || "";
+/**
+ * Format file size
+ */
+const formatSize = (bytes = 0) => {
+    const kb = bytes / 1024;
+    const mb = kb / 1024;
 
-    if (!args[0]) {
-        if (!mime) {
-            const list = `*Upload Server*\n
-1. Catbox.moe
-2. Uguu.se
-3. Qu.ax
+    return mb >= 1
+        ? `${mb.toFixed(2)} MB`
+        : `${kb.toFixed(2)} KB`;
+};
+
+/**
+ * Detect media type
+ */
+const detectType = (mime = "") => {
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("audio/")) return "audio";
+
+    return "file";
+};
+
+/**
+ * Upload menu
+ */
+const uploadMenu = (usedPrefix, command) => `
+*Upload Server*
+
+1. Qu.ax
+2. Catbox.moe
+3. Uguu.se
 4. Put.icu
 5. Tmpfiles.org
 6. Videy (Video only)
 7. GoFile (Image only)
 
-Ex: ${usedPrefix + command} 1`;
-            return m.reply(list);
-        }
+Example:
+${usedPrefix + command} 1
+`.trim();
 
-        await global.loading(m, conn);
-        const buffer = await q.download?.();
-
-        const sizeKB = (buffer.length / 1024).toFixed(2);
-        const sizeMB = (buffer.length / 1024 / 1024).toFixed(2);
-        const size = buffer.length > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
-
-        const res = await uploader(buffer);
-        if (res?.success) {
-            return conn.client(
-                m.chat,
-                {
-                    text: `Uploaded\nServer: ${res.provider}\nSize: ${size}`,
-                    interactiveButtons: [
-                        {
-                            name: "cta_copy",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "Copy URL",
-                                copy_code: res.url,
-                            }),
-                        },
-                    ],
-                },
-                { quoted: m }
-            );
-        }
-        return m.reply(`Upload failed.\nSize: ${size}`);
-    }
-
-    const num = args[0].toString().trim().match(/\d+/)?.[0];
-    if (!num || !servers[num]) return m.reply("Invalid server (1-7)");
-
-    await global.loading(m, conn);
-    const buffer = await q.download?.();
-
-    const sizeKB = (buffer.length / 1024).toFixed(2);
-    const sizeMB = (buffer.length / 1024 / 1024).toFixed(2);
-    const size = buffer.length > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
-
-    const srv = servers[num];
-    let result = await srv.fn(buffer);
-    let caption = "";
-    let url = "";
-
-    if (!result) {
-        await m.reply(`${srv.name} failed. Trying fallback...`);
-        result = await uploader(buffer);
-        if (result?.success) {
-            caption = `Uploaded\nPrimary: ${srv.name} (failed)\nFallback: ${result.provider}\nSize: ${size}`;
-            url = result.url;
-        }
-    } else if (result.success) {
-        caption = `Uploaded\nServer: ${result.provider}\nSize: ${size}`;
-        url = result.url;
-    } else if (typeof result === "string") {
-        caption = `Uploaded\nServer: ${srv.name}\nSize: ${size}`;
-        url = result;
-    } else {
-        return m.reply(`Upload failed.\nSize: ${size}`);
-    }
-
+/**
+ * Send upload result
+ */
+async function sendResult(conn, m, text, url) {
     return conn.client(
         m.chat,
         {
-            text: caption,
+            text,
             interactiveButtons: [
                 {
                     name: "cta_copy",
@@ -146,13 +125,188 @@ Ex: ${usedPrefix + command} 1`;
         },
         { quoted: m }
     );
+}
+
+/**
+ * Main command handler
+ */
+let handler = async (m, { conn, args, usedPrefix, command }) => {
+    try {
+        const q = m.quoted?.mimetype ? m.quoted : m;
+
+        const mime =
+            (q.msg || q).mimetype ||
+            q.mediaType ||
+            "";
+
+        /**
+         * No media
+         */
+        if (!mime) {
+            return m.reply(uploadMenu(usedPrefix, command));
+        }
+
+        /**
+         * Download media
+         */
+        await global.loading?.(m, conn);
+
+        const buffer = await q.download?.();
+
+        if (!buffer || !Buffer.isBuffer(buffer)) {
+            return m.reply("Failed download media");
+        }
+
+        /**
+         * File info
+         */
+        const size = formatSize(buffer.length);
+        const mediaType = detectType(mime);
+
+        /**
+         * Auto upload
+         */
+        if (!args[0]) {
+            const res = await uploader(buffer, conn?.logger);
+
+            if (!res?.success) {
+                return m.reply(
+                    `Upload failed.\nType: ${mediaType}\nSize: ${size}`
+                );
+            }
+
+            return sendResult(
+                conn,
+                m,
+                `Uploaded
+
+Server: ${res.provider}
+Type: ${mediaType}
+Size: ${size}`,
+                res.url
+            );
+        }
+
+        /**
+         * Manual server select
+         */
+        const num =
+            args[0]
+                ?.toString()
+                .trim()
+                .match(/\d+/)?.[0];
+
+        if (!num || !servers[num]) {
+            return m.reply("Invalid server (1-7)");
+        }
+
+        const srv = servers[num];
+
+        /**
+         * Validate server type
+         */
+        if (
+            !srv.types.includes("all") &&
+            !srv.types.includes(mediaType)
+        ) {
+            return m.reply(
+                `${srv.name} only supports ${srv.types.join(", ")}`
+            );
+        }
+
+        let result = null;
+
+        /**
+         * Primary upload
+         */
+        try {
+            result = await srv.fn(buffer, conn?.logger);
+        } catch (e) {
+            conn?.logger?.error?.(
+                `[UPLOAD:${srv.name}] ${e.message}`
+            );
+        }
+
+        /**
+         * Fallback
+         */
+        if (!result) {
+            await m.reply(
+                `${srv.name} failed.\nTrying fallback uploader...`
+            );
+
+            const fallback = await uploader(
+                buffer,
+                conn?.logger
+            );
+
+            if (!fallback?.success) {
+                return m.reply(
+                    `Upload failed.
+
+Server: ${srv.name}
+Type: ${mediaType}
+Size: ${size}`
+                );
+            }
+
+            return sendResult(
+                conn,
+                m,
+                `Uploaded
+
+Primary: ${srv.name} (failed)
+Fallback: ${fallback.provider}
+Type: ${mediaType}
+Size: ${size}`,
+                fallback.url
+            );
+        }
+
+        /**
+         * Normalize result
+         */
+        const url =
+            typeof result === "string"
+                ? result
+                : result?.url;
+
+        if (!url) {
+            return m.reply(
+                `Upload failed.
+
+Server: ${srv.name}
+Type: ${mediaType}
+Size: ${size}`
+            );
+        }
+
+        /**
+         * Success
+         */
+        return sendResult(
+            conn,
+            m,
+            `Uploaded
+
+Server: ${srv.name}
+Type: ${mediaType}
+Size: ${size}`,
+            url
+        );
+    } catch (e) {
+        conn?.logger?.error?.(e);
+
+        return m.reply(
+            `Upload error.
+
+${e.message || e}`
+        );
+    }
 };
 
 /**
- * Command metadata for help system
- * @property {Array<string>} help - Help text
- * @property {Array<string>} tags - Command categories
- * @property {RegExp} command - Command pattern matching
+ * Command metadata
  */
 handler.help = ["upload"];
 handler.tags = ["tools"];

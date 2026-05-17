@@ -1,59 +1,79 @@
 let handler = async (m, { conn, text, usedPrefix, command }) => {
   try {
-    if (!text)
+    if (!text) {
       return m.reply(
         `Masukin nomor XL.\nContoh:\n${usedPrefix + command} 081933732553`
       );
+    }
 
     await global.loading(m, conn);
 
-    // Format nomor ke 62
-    let number = text.replace(/[^0-9]/g, "");
-    if (number.startsWith("0")) number = "62" + number.slice(1);
+    // Bersihin nomor
+    let number = text.replace(/\D/g, "");
 
-    const url = `https://libieapiofficial.dpdns.org/info/cekxl?number=${number}`;
+    // Format ke 62
+    if (number.startsWith("0")) {
+      number = "62" + number.slice(1);
+    }
+
+    if (!/^62\d{8,15}$/.test(number)) {
+      throw new Error("Format nomor tidak valid");
+    }
+
+    const url = `https://libieapiofficial.dpdns.org/api/info/cekxl?number=${number}`;
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" }
+      method: "GET",
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+      }
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
 
     const json = await res.json();
 
-    if (!json.status) throw new Error("Nomor tidak ditemukan / API gagal");
+    if (!json?.status || !json?.result) {
+      throw new Error("Data tidak ditemukan");
+    }
 
     const data = json.result;
 
     let caption = `
 📱 *CEK XL*
 
-Nomor      : ${data.number}
-Operator   : ${data.operator}
-Verified   : ${data.id_verified}
-Jaringan   : ${data.network}
-Masa Aktif : ${data.exp_date}
-Grace      : ${data.grace_until}
-Umur Kartu : ${data.tenure}
+• Nomor      : ${data.number || "-"}
+• Operator   : ${data.operator || "-"}
+• Verified   : ${data.id_verified || "-"}
+• Jaringan   : ${data.network || "-"}
+• Masa Aktif : ${data.exp_date || "-"}
+• Grace      : ${data.grace_until || "-"}
+• Umur Kartu : ${data.tenure || "-"}
 
 📡 *VoLTE*
-Device  : ${data.volte.device ? "✅" : "❌"}
-Area    : ${data.volte.area ? "✅" : "❌"}
-SIM     : ${data.volte.simcard ? "✅" : "❌"}
+• Device : ${data.volte?.device ? "✅" : "❌"}
+• Area   : ${data.volte?.area ? "✅" : "❌"}
+• SIM    : ${data.volte?.simcard ? "✅" : "❌"}
 `.trim();
 
-    if (data.packages?.length) {
+    if (Array.isArray(data.packages) && data.packages.length) {
       caption += `\n\n📦 *PAKET AKTIF*`;
 
-      for (let pkg of data.packages) {
-        caption += `\n\n▣ ${pkg.name}
-Expired : ${pkg.expiry}`;
+      for (const pkg of data.packages) {
+        caption += `\n\n▣ *${pkg.name || "-"}*`;
+        caption += `\n• Expired : ${pkg.expiry || "-"}`;
 
-        if (pkg.quotas?.length) {
-          for (let q of pkg.quotas) {
-            caption += `\n   • ${q.name}
-     Sisa : ${q.remaining} / ${q.total}
-     ${q.percent}%`;
+        if (Array.isArray(pkg.quotas) && pkg.quotas.length) {
+          caption += `\n\n📊 Kuota:`;
+
+          for (const q of pkg.quotas) {
+            caption += `
+• ${q.name || "-"}
+  Sisa : ${q.remaining || "0KB"} / ${q.total || "0KB"}
+  Usage: ${q.percent ?? 0}%`;
           }
         }
       }
@@ -61,11 +81,15 @@ Expired : ${pkg.expiry}`;
       caption += `\n\nTidak ada paket aktif.`;
     }
 
-    await conn.reply(m.chat, caption, m);
+    await conn.reply(m.chat, caption.trim(), m);
 
   } catch (e) {
-    global.logger.error(e);
-    m.reply(`❌ Error: ${e.message}`);
+    console.error(e);
+    global.logger?.error?.(e);
+
+    m.reply(
+      `❌ Error: ${e.message || "Terjadi kesalahan"}`
+    );
   } finally {
     await global.loading(m, conn, true);
   }
