@@ -1,12 +1,12 @@
 /**
- * @file Copilot AI chat command handler
- * @module plugins/ai/copilot
+ * @file Turbo AI chat command handler
+ * @module plugins/ai/turboai
  * @license Apache-2.0
  * @author Himejima
  */
 
 /**
- * Interacts with Microsoft Copilot AI for text generation
+ * Interacts with Turbo AI for text generation
  * @async
  * @function handler
  * @param {Object} m - Message object
@@ -16,33 +16,35 @@
  */
 
 let handler = async (m, { conn, text }) => {
-    if (!text) return m.reply("Ask something to Copilot AI");
+    if (!text) return m.reply("Ask something to Turbo AI");
 
     try {
         await global.loading(m, conn);
 
-        const api = `https://api.yupra.my.id/api/ai/copilot-think?text=${encodeURIComponent(text)}`;
-
-        const res = await fetch(api, {
+        const res = await fetch("https://theturbochat.com/chat", {
+            method: "POST",
             headers: {
-                "User-Agent": "Mozilla/5.0 (Linux; Android 10; YPBot)"
-            }
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0"
+            },
+            body: JSON.stringify({
+                message: text,
+                model: "turbo",
+                language: "id"
+            })
         });
 
         if (!res.ok) return m.reply("API error");
 
         const json = await res.json();
-
-        if (!json?.status) return m.reply("API error");
-
-        const reply = json.result;
+        const reply = json?.choices?.[0]?.message?.content;
 
         if (!reply) return m.reply("No response");
 
         await conn.sendMessage(
             m.chat,
             {
-                text: `Copilot:\n${reply.trim()}`
+                text: `Turbo AI:\n${reply.trim()}`
             },
             { quoted: m }
         );
@@ -59,16 +61,16 @@ let handler = async (m, { conn, text }) => {
  * @property {Array<string>} tags - Command categories
  * @property {RegExp} command - Command pattern matching
  */
-handler.help = ["copilot"];
+handler.help = ["turboai"];
 handler.tags = ["ai"];
-handler.command = /^(copilot)$/i;
+handler.command = /^(turboai)$/i;
 
 handler.desc = [
-    "Berinteraksi dengan Microsoft Copilot AI",
+    "Berinteraksi dengan Turbo AI",
     "Menerima pertanyaan atau prompt berbasis teks",
     "Menghasilkan jawaban AI secara natural",
     "Cocok untuk tanya jawab dan diskusi umum",
-    "Menggunakan API pihak ketiga",
+    "Menggunakan TurboChat AI",
     "Menangani error API dan respons kosong"
 ];
 

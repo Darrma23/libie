@@ -286,7 +286,7 @@ async function LIBIE() {
     
     
     // INIT HOT RELOAD (INI YANG BIKIN BOT LU "HIDUP")
-    /* hotReloadCleanup = initHotReload(
+    hotReloadCleanup = initHotReload(
       plugDir,
       async (filename, module) => {
         try {
@@ -345,7 +345,7 @@ async function LIBIE() {
           );
         }
       }
-    ); */
+    );
 
     // Start the bot
     await global.reloadHandler();
