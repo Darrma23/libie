@@ -242,7 +242,7 @@ async function LIBIE() {
         },
       },
 
-  browser: Browsers.macOS("Safari"),
+  browser: Browsers.windows("Chrome"),
   auth: state,
 };
 

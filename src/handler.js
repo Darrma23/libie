@@ -194,7 +194,6 @@ async function initRedisReportListener() {
       url: "redis://127.0.0.1:6379"
     });
 
-    // ✅ BENAR: redisClient, bukan redis
     redisClient.on("error", err =>
       console.error("Redis Bot Error:", err.message)
     );
@@ -202,7 +201,6 @@ async function initRedisReportListener() {
     await redisClient.connect();
     console.log("🟥 Bot Redis connected");
 
-    // ✅ BENAR: redisClient.duplicate(), bukan redis.duplicate()
     redisSubscriber = redisClient.duplicate();
     await redisSubscriber.connect();
 
@@ -258,6 +256,9 @@ export async function handler(chatUpdate) {
 
 		const m = smsg(this, messages[messages.length - 1]);
 		if (!m || m.isBaileys) return;
+        
+        // Biar ga respon chat bot
+        if (m.fromMe) return;
 		
 		if (m.chat) {
         const isGroup = m.chat.endsWith("@g.us") ? 1 : 0
