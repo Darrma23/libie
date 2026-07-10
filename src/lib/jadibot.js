@@ -88,7 +88,8 @@ export default async function startJadiBot({
 
       const code =
         await jadibotConn.requestPairingCode(
-          number
+          number,
+          global.config?.pairingCode
         );
 
       await parentConn.reply(
