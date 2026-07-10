@@ -23,7 +23,8 @@
     "scripts": {
         "start": "bun run --smol src/main.js",
         "notify": "bun run notifserver.js",
-        "lint": "eslint ."
+        "lint": "eslint .",
+        "postinstall": "patch-package"
     },
     "dependencies": {
         "@napi-rs/canvas": "^0.1.84",
@@ -75,6 +76,7 @@
         "sharp"
     ],
     "devDependencies": {
+        "patch-package": "^8.0.1",
         "prettier": "^3.8.0"
     }
 }
