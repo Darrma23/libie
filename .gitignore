@@ -9,19 +9,6 @@ bun-debug.log*
 bun-error.log*
 
 # ============================================
-# ENVIRONMENT & SECURITY
-# ============================================
-.env
-.env.local
-.env.*.local
-.env.backup
-.secrets/
-keys/
-certificates/
-ssl/
-.current_version
-
-# ============================================
 # DATABASE & DATA STORAGE
 # ============================================
 *.db
