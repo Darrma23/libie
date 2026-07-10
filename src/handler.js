@@ -195,23 +195,24 @@ async function initRedisReportListener() {
     });
 
     redisClient.on("error", err =>
-      console.error("Redis Bot Error:", err.message)
+      global.logger?.error({ error: err.message }, "Redis Bot Error")
     );
 
     await redisClient.connect();
-    console.log("🟥 Bot Redis connected");
+    global.logger?.info("Bot Redis connected");
 
     redisSubscriber = redisClient.duplicate();
     await redisSubscriber.connect();
 
     await redisSubscriber.subscribe("reports", async (msg) => {
-      console.log("📨 Redis msg:", msg);
+      global.logger?.debug({ message: msg }, "Redis msg");
 
       let data;
       try {
         data = JSON.parse(msg);
       } catch {
-        return console.log("⚠ Invalid JSON:", msg);
+        global.logger?.warn({ message: msg }, "Redis invalid JSON");
+        return;
       }
 
       const meta = TYPE_META[data.type] || TYPE_META.other;
@@ -230,16 +231,16 @@ _*${data.message || "-"}*_`;
       const ownerJid = "6289521010900@s.whatsapp.net";
 
       try {
-        if (global.conn?.user?.id) {  // ✅ Cek connection
+        if (global.conn?.user?.id) {
           await global.conn.sendMessage(ownerJid, { text });
-          console.log("✅ Sent →", ownerJid);
+          global.logger?.info({ sent: true, to: ownerJid }, "Redis report sent");
         }
       } catch (err) {
-        console.log("❌ Gagal →", ownerJid, err.message);
+        global.logger?.error({ error: err.message, to: ownerJid }, "Redis report send failed");
       }
     });
   } catch (err) {
-    console.error("Redis init error:", err.message);
+    global.logger?.error({ error: err.message }, "Redis init error");
     redisClient = null;
     redisSubscriber = null;
   }
@@ -605,11 +606,8 @@ export async function handler(chatUpdate) {
 						rpg.level += 1;
 					}
 
-					if (cost > 0) {
+				if (cost > 0) {
 						rpg.user_limit -= cost;
-						await m.reply(
-							`${cost} Limit terpakai`
-						);
 					}
 				}
 				break;

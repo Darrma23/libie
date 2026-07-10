@@ -23,7 +23,7 @@ const SCHEMAS = {
   user: {
     columns: {
       jid: "TEXT PRIMARY KEY",
-      name: "TEXT UNIQUE",
+      name: "TEXT",
 
       level: "INTEGER DEFAULT 1",
       exp: "INTEGER DEFAULT 0",

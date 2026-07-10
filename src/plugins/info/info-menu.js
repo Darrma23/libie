@@ -259,7 +259,7 @@ async function show(conn, m, help, cat, prefix, time) {
                     title: `${META[cat]} Commands`,
                     body: `${cmds.length} commands`,
                     thumbnailUrl: "https://files.catbox.moe/bw7r5e.jpg",
-                    sourceUrl: "https:/beacons.page/libie",
+                    sourceUrl: "https://beacons.page/libie",
                     mediaType: 1,
                     renderLargerThumbnail: true,
                 },

@@ -109,38 +109,17 @@ function exitHandler(_signal) {
 }
 
 /**
- * Complete process exit handler with proper signal handling
- * @private
- * @function fullExitHandler
- * @param {string} signal - System signal (SIGINT, SIGTERM)
+ * Initializes system signal handlers for graceful shutdown.
+ * SIGINT/SIGTERM are NOT registered here — main.js handles them
+ * to avoid race conditions with async shutdown logic.
  *
- * @exitCodes
- * - 130: SIGINT (Ctrl+C) - User interrupted
- * - 143: SIGTERM - Graceful termination
- *
- * @cleanup
- * - Ensures all handlers execute before exit
- * - Adds timeout safety to prevent hanging
- * - Uses unref() to prevent timer from blocking exit
- */
-function fullExitHandler(signal) {
-    exitHandler(signal);
-    const code = signal === "SIGINT" ? 130 : 143;
-    const timer = setTimeout(() => process.exit(code), 500);
-    timer.unref?.();
-}
-
-/**
- * Initializes system signal handlers for graceful shutdown
  * @function initializeSignalHandlers
  * @returns {void}
  *
  * @handlers
- * 1. exit - Clean shutdown
- * 2. SIGINT - Ctrl+C interruption
- * 3. SIGTERM - Termination request
- * 4. uncaughtException - Unhandled errors
- * 5. unhandledRejection - Unhandled promise rejections
+ * 1. exit - Clean shutdown (sync only)
+ * 2. uncaughtException - Unhandled errors
+ * 3. unhandledRejection - Unhandled promise rejections
  *
  * @idempotency
  * - Safe to call multiple times (only initializes once)
@@ -152,8 +131,6 @@ export function initializeSignalHandlers() {
 
     try {
         process.once("exit", () => exitHandler("exit"));
-        process.once("SIGINT", () => fullExitHandler("SIGINT"));
-        process.once("SIGTERM", () => fullExitHandler("SIGTERM"));
         process.on("uncaughtException", (err) => {
             global.logger.error({
                 err: err.message,
@@ -216,4 +193,14 @@ export function registerSignalHandler(id, handler) {
  */
 export function unregisterSignalHandler(id) {
     return signalHandlers.delete(id);
+}
+
+/**
+ * Executes all registered cleanup handlers programmatically.
+ * Can be called from main.js shutdown to ensure AuthDatabase
+ * cleanup runs before closing DB.
+ * @function runCleanupHandlers
+ */
+export function runCleanupHandlers() {
+    exitHandler("shutdown");
 }

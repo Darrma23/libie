@@ -11,6 +11,7 @@ import "./config.js";
 import "#db";
 import { serialize } from "#core/message.js";
 import { useSQLiteAuthState } from "#auth";
+import { runCleanupHandlers } from "#lib/core/auth/config.js";
 import { Browsers, fetchLatestBaileysVersion } from "baileys";
 import { dirname, join } from "node:path";
 import {
@@ -218,6 +219,7 @@ global.db.data.settings ||= {}
  */
 async function LIBIE() {
   authState = useSQLiteAuthState();
+  auth = authState;
 
     const { state, saveCreds } = authState;
     const { version: baileysVersion } = await fetchLatestBaileysVersion();
@@ -413,6 +415,13 @@ async function shutdown(sig) {
             } catch (e) {
                 global.logger.error({ error: e.message }, "Auth dispose error");
             }
+        }
+
+        // Run AuthDatabase cleanup (flushes write buffer)
+        try {
+            runCleanupHandlers();
+        } catch (e) {
+            global.logger.warn({ error: e.message }, "Cleanup handlers error");
         }
 
         // Close database connections
