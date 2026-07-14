@@ -193,27 +193,36 @@ ${plugins.map((v, i) => `  \`\`\`${i + 1}.\`\`\` \`\`\`${v}\`\`\``).join('\n')}
       return m.reply('Symlink tidak diizinkan')
     }
 
-    await ensureRich(conn)
+    const code = fs.readFileSync(target, "utf8")
 
-    const code = fs.readFileSync(target, 'utf8')
-
-    const caption = `
-*─── [ PLUGIN ANALYSIS ] ───*
-
-📁 Name: ${path.basename(file)}
-⚖️ Size: ${(stat.size / 1024).toFixed(2)} KB
-🧩 Ext: ${path.extname(file)}
-📍 Path: ${file}
-`.trim()
-
-    await conn.sendRichResponse(m.chat, {
-      text: caption,
-      code: {
-        code: code.slice(0, 8000),
-        language: 'javascript'
-      }
-    }, { quoted: m })
-
+   await conn.client(
+       m.chat,
+       {
+           text: [
+               "*─── [ PLUGIN ANALYSIS ] ───*",
+               "",
+               `📁 Name: ${path.basename(file)}`,
+               `⚖️ Size: ${(stat.size / 1024).toFixed(2)} KB`,
+               `🧩 Ext: ${path.extname(file)}`,
+               `📍 Path: ${file}`,
+               "",
+               "Tekan tombol di bawah untuk menyalin source plugin."
+           ].join("\n"),
+           title: "Plugin",
+           footer: "Libie",
+           interactiveButtons: [
+               {
+                   name: "cta_copy",
+                   buttonParamsJson: JSON.stringify({
+                       display_text: "📋 Copy Plugin",
+                       copy_code: code.slice(0, 8000),
+                   }),
+               },
+           ],
+           hasMediaAttachment: false,
+       },
+       { quoted: m }
+   )
     return
   }
 
