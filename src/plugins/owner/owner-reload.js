@@ -26,6 +26,7 @@
  */
 
 import path from "node:path";
+import { reloadAllPlugins } from "#lib/core/connection.js";
 
 const handler = async (m) => {
     const pluginFolder = path.resolve("./src/plugins");
