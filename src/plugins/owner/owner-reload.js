@@ -3,6 +3,7 @@
  * @module plugins/owner/reload
  * @license Apache-2.0
  * @author Naruya Izumi
+ * @see {@link /src/lib/core/connection.js}
  */
 
 /**
@@ -24,9 +25,12 @@
  * - Simple confirmation message
  */
 
-let handler = async (m) => {
-    await global.reloadAllPlugins();
-    await global.reloadHandler();
+import path from "node:path";
+
+const handler = async (m) => {
+    const pluginFolder = path.resolve("./src/plugins");
+    await global.reloadAllPlugins(pluginFolder);
+    await global.reloadHandler(false); // false = don't restart connection
     m.reply("Reloaded");
 };
 
