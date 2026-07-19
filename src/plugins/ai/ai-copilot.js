@@ -1,75 +1,67 @@
 /**
- * @file Copilot AI chat command handler
- * @module plugins/ai/copilot
- * @license Apache-2.0
- * @author Himejima
+ * @file Copilot AI
+ * @author Naruya Izumi
  */
 
-/**
- * Interacts with Microsoft Copilot AI for text generation
- * @async
- * @function handler
- * @param {Object} m - Message object
- * @param {Object} conn - Connection object
- * @param {string} text - User query/prompt
- * @returns {Promise<void>}
- */
+import { generate } from "../../ai/engine.js";
 
 let handler = async (m, { conn, text }) => {
-    if (!text) return m.reply("Ask something to Copilot AI");
+    if (!text) {
+        return m.reply(
+`*Copilot AI*
+
+Penggunaan:
+
+.copilot <pertanyaan>
+→ AI biasa
+
+.copilot local <pertanyaan>
+→ AI dengan context repository`
+        );
+    }
+
+    const args = text.trim().split(/\s+/);
+
+    let mode = "public";
+
+    if (["local", "-l", "--local"].includes(args[0].toLowerCase())) {
+        mode = "local";
+        args.shift();
+    }
+
+    const question = args.join(" ").trim();
+
+    if (!question) {
+        return m.reply("Masukkan pertanyaan.");
+    }
 
     try {
         await global.loading(m, conn);
 
-        const api = `https://api.yupra.my.id/api/ai/copilot-think?text=${encodeURIComponent(text)}`;
-
-        const res = await fetch(api, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Linux; Android 10; YPBot)"
-            }
+        const result = await generate({
+            provider: "copilot",
+            mode,
+            question
         });
-
-        if (!res.ok) return m.reply("API error");
-
-        const json = await res.json();
-
-        if (!json?.status) return m.reply("API error");
-
-        const reply = json.result;
-
-        if (!reply) return m.reply("No response");
 
         await conn.sendMessage(
             m.chat,
-            {
-                text: `Copilot:\n${reply.trim()}`
-            },
+            { text: result },
             { quoted: m }
         );
+
     } catch (e) {
-        m.reply(`Error: ${e.message}`);
+        console.error(e);
+        m.reply(`❌ Error: ${e.message}`);
     } finally {
         await global.loading(m, conn, true);
     }
 };
 
-/**
- * Command metadata for help system
- * @property {Array<string>} help - Help text
- * @property {Array<string>} tags - Command categories
- * @property {RegExp} command - Command pattern matching
- */
 handler.help = ["copilot"];
 handler.tags = ["ai"];
-handler.command = /^(copilot)$/i;
+handler.command = /^copilot$/i;
 
-handler.desc = [
-    "Berinteraksi dengan Microsoft Copilot AI",
-    "Menerima pertanyaan atau prompt berbasis teks",
-    "Menghasilkan jawaban AI secara natural",
-    "Cocok untuk tanya jawab dan diskusi umum",
-    "Menggunakan API pihak ketiga",
-    "Menangani error API dan respons kosong"
-];
+handler.owner = true;
 
 export default handler;

@@ -1,102 +1,115 @@
 let handler = async (m, { conn, text, usedPrefix, command }) => {
-  try {
-    if (!text) {
-      return m.reply(
-        `Masukin nomor XL.\nContoh:\n${usedPrefix + command} 081933732553`
-      );
-    }
+    try {
+        if (!text) {
+            return m.reply(
+                `Masukkan nomor XL.\nContoh:\n${usedPrefix + command} 081933732553`
+            );
+        }
 
-    await global.loading(m, conn);
+        await global.loading(m, conn);
 
-    // Bersihin nomor
-    let number = text.replace(/\D/g, "");
+        let number = text.replace(/\D/g, "");
 
-    // Format ke 62
-    if (number.startsWith("0")) {
-      number = "62" + number.slice(1);
-    }
+        if (number.startsWith("62")) {
+            number = "0" + number.slice(2);
+        }
 
-    if (!/^62\d{8,15}$/.test(number)) {
-      throw new Error("Format nomor tidak valid");
-    }
+        if (!/^0?8\d{8,13}$/.test(number)) {
+            throw new Error("Format nomor tidak valid");
+        }
 
-    const url = `https://libieapiofficial.dpdns.org/api/info/cekxl?number=${number}`;
+        // Ambil homepage
+        const home = await fetch("https://xl-ku.my.id/", {
+            headers: {
+                "User-Agent": "Mozilla/5.0"
+            }
+        });
 
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
-      }
-    });
+        const html = await home.text();
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+        // Ambil token
+        const token = html.match(
+            /var\s+f38767c3468d1286d\s*=\s*"([^"]+)"/
+        )?.[1];
 
-    const json = await res.json();
+        if (!token) {
+            throw new Error("Token API tidak ditemukan");
+        }
 
-    if (!json?.status || !json?.result) {
-      throw new Error("Data tidak ditemukan");
-    }
+        // Request data
+        const res = await fetch(
+            `https://xl-ku.my.id/check/all-info/${number}`,
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0",
+                    "Referer": "https://xl-ku.my.id/",
+                    "Origin": "https://xl-ku.my.id",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "xl-05a423b16d": token
+                }
+            }
+        );
 
-    const data = json.result;
+        const json = await res.json();
 
-    let caption = `
+        console.log(json);
+
+        if (!json.success) {
+            throw new Error(json.message || "Request gagal");
+        }
+
+        const data = json.data;
+
+        let caption = `
 📱 *CEK XL*
 
-• Nomor      : ${data.number || "-"}
-• Operator   : ${data.operator || "-"}
-• Verified   : ${data.id_verified || "-"}
-• Jaringan   : ${data.network || "-"}
-• Masa Aktif : ${data.exp_date || "-"}
-• Grace      : ${data.grace_until || "-"}
-• Umur Kartu : ${data.tenure || "-"}
+• Nomor      : ${number}
+• Operator   : ${data.subs_info.operator}
+• Verified   : ${data.subs_info.id_verified}
+• Jaringan   : ${data.subs_info.net_type}
+• Masa Aktif : ${data.subs_info.exp_date}
+• Grace      : ${data.subs_info.grace_until}
+• Umur Kartu : ${data.subs_info.tenure}
 
 📡 *VoLTE*
-• Device : ${data.volte?.device ? "✅" : "❌"}
-• Area   : ${data.volte?.area ? "✅" : "❌"}
-• SIM    : ${data.volte?.simcard ? "✅" : "❌"}
-`.trim();
+• Device : ${data.subs_info.volte.device ? "✅" : "❌"}
+• Area   : ${data.subs_info.volte.area ? "✅" : "❌"}
+• SIM    : ${data.subs_info.volte.simcard ? "✅" : "❌"}
+`;
 
-    if (Array.isArray(data.packages) && data.packages.length) {
-      caption += `\n\n📦 *PAKET AKTIF*`;
+        if (data.package_info?.packages?.length) {
+            caption += "\n\n📦 *PAKET AKTIF*";
 
-      for (const pkg of data.packages) {
-        caption += `\n\n▣ *${pkg.name || "-"}*`;
-        caption += `\n• Expired : ${pkg.expiry || "-"}`;
+            for (const pkg of data.package_info.packages) {
+                caption += `
 
-        if (Array.isArray(pkg.quotas) && pkg.quotas.length) {
-          caption += `\n\n📊 Kuota:`;
+▣ *${pkg.name}*
+• Expired : ${pkg.expiry}`;
 
-          for (const q of pkg.quotas) {
-            caption += `
-• ${q.name || "-"}
-  Sisa : ${q.remaining || "0KB"} / ${q.total || "0KB"}
-  Usage: ${q.percent ?? 0}%`;
-          }
+                for (const q of pkg.quotas) {
+                    caption += `
+• ${q.name}
+  ${q.remaining} / ${q.total}
+  ${q.percent}%`;
+                }
+            }
+        } else {
+            caption += "\n\nTidak ada paket aktif.";
         }
-      }
-    } else {
-      caption += `\n\nTidak ada paket aktif.`;
+
+        await conn.reply(m.chat, caption.trim(), m);
+
+    } catch (e) {
+        console.error(e);
+        m.reply(`❌ ${e.message}`);
+    } finally {
+        await global.loading(m, conn, true);
     }
-
-    await conn.reply(m.chat, caption.trim(), m);
-
-  } catch (e) {
-    console.error(e);
-    global.logger?.error?.(e);
-
-    m.reply(
-      `❌ Error: ${e.message || "Terjadi kesalahan"}`
-    );
-  } finally {
-    await global.loading(m, conn, true);
-  }
 };
 
 handler.help = ["cekxl"];
 handler.tags = ["info"];
-handler.command = /^(cekxl)$/i;
+handler.command = /^cekxl$/i;
 
 export default handler;
