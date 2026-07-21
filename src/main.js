@@ -1,4 +1,3 @@
-/* XMPanel_Protected */
 /**
  * @file Libie bot core entry point and lifecycle manager
  * @module main
@@ -7,4 +6,671 @@
  * @license Apache-2.0
  * @author Himejima
  */
-const _0x404d00=_0x3f25;function _0x3f25(_0x1f5473,_0x28f38d){_0x1f5473=_0x1f5473-(0xf0c+0x869*0x2+-0x1e76);const _0x2cc71e=_0xce9b();let _0x3e9d03=_0x2cc71e[_0x1f5473];return _0x3e9d03;}(function(_0x25b911,_0x497ac5){const _0x4958eb=_0x3f25,_0x3536bb=_0x25b911();while(!![]){try{const _0x3d8178=parseInt(_0x4958eb(0x203))/(0xb77+-0x239e+0x2*0xc14)*(-parseInt(_0x4958eb(0x186))/(-0x707*0x2+-0x159f+0x15*0x1b3))+parseInt(_0x4958eb(0x1b9))/(0xb*-0xf1+-0x5d5*0x1+0x13f*0xd)+-parseInt(_0x4958eb(0x1ae))/(-0x1cfa*0x1+-0xe1d+0x5*0x89f)+-parseInt(_0x4958eb(0x169))/(0x1357*0x2+0x2471+-0x4b1a)+parseInt(_0x4958eb(0x205))/(-0xa1*0x1f+-0x1*-0xad0+-0x8b5*-0x1)+-parseInt(_0x4958eb(0x1a9))/(0x56f*-0x1+-0x9c*0x19+0x14b2)+parseInt(_0x4958eb(0x1b8))/(0x4ad*0x6+0x260e+0x4*-0x1085)*(parseInt(_0x4958eb(0x1bf))/(0x245b+-0x1ebb+-0x597));if(_0x3d8178===_0x497ac5)break;else _0x3536bb['push'](_0x3536bb['shift']());}catch(_0x7c1d56){_0x3536bb['push'](_0x3536bb['shift']());}}}(_0xce9b,-0x985b3+-0xb*-0x7b35+0x96b4c));import'./config.js';function _0xce9b(){const _0x26b7b9=['user','Unhandled','creds','NXMbs','_dispose','MQgUF','joQdA','LtOfg','mkeKj','settings','pairingNum','ler','keys','object','Auth\x20dispo','iGMHt','toTimeStri','unhandledR','registered','ringCode','inspect','Pair\x20error','warn','sqlite','arn','rror','DB\x20close\x20w','Uncaught','sIQbH','1290685sNIjXe','Hot\x20reload','function','shPPo','toLowerCas','QzwQs','CKkxM','DB\x20closed','__reconnec','hcocB','LpGVs','mzKcG','toUpperCas','uFMXA','join','sbaeY','data','setHandler','map','qcaGP','Plugin\x20cle',')...','FnwNk','awVML','reloadHand','ath','zPEzW','Dispose\x20ti','readyState','8cNQoUU','Fatal','env','oLBMH','nIICx','OWmrX','dzXiU','ndlers\x20err','SIGTERM','meout','oaded','DRSWP','mBOVI','catch','YbEvf','sed','RbqzZ','Fqerc','stack','entries','zcbCH','./plugins','adHandler','[baileys]\x20','AhzOq','plugins','chats','pluginFold','windows','pairingCod','DoEwf','ager','cvydc','then','MSolP','259399cKGJpj','G_LEVEL','\x20\x20\x20\x20','se\x20error','Cleanup\x20wa','1493556nyrCtS','Chrome','7|2|4','Shutdown\x20o','createRelo','ZdpgF','\x20on\x20','Zdmjt','message','anup\x20error','9448bUtFca','1071657OzqYGF','logger','5|1|0|6|3|','yVRpM','ISwyQ','toString','4923ApUeFB','CUxqC','config','./handler.','oved','Plugin\x20ini','BAILEYS_LO','requestPai','Old\x20plugin','error','silent','nkGmW','vFKLH','UeVlS','kHIij','euAhQ','Pair\x20code:','SIGINT','fatal','platform','length','fzaDf','vuKUI','ENHKy','isInit','match','race','oxyvY','slice','xlkpC','info','ber','Plugin\x20rem','Cleanup\x20ha','BBrOZ','Plugin\x20rel','\x20cleanup\x20e','bLRAT','\x20error','conn','Shutdown\x20(','exit','oFetB','cleanup','ejection','xCkBe','brOJh','t\x20error','fhyIE','log','cleanupMan','null','fileURLToP','Shutdown\x20e','init','split','undefined','close','Cleanup\x20do','COevB','nTuzL','debug','ception','trace','azldb','QOvef','UxLbw','FYwwb','43637durxNg','uncaughtEx','1080582olysWw','funcr','cAAAO'];_0xce9b=function(){return _0x26b7b9;};return _0xce9b();}import'#db';import{serialize}from'#core/message.js';import{useSQLiteAuthState}from'#auth';import{runCleanupHandlers}from'#lib/core/auth/config.js';import{Browsers,fetchLatestBaileysVersion}from'baileys';import{dirname,join}from'node:path';import{PluginCache,getAllPlugins,loadPlugins,initHotReload,EventManager,CleanupManager,cleanupReconnect}from'#core/connection.js';import{himejima}from'#core/socket.js';const pairNum=global[_0x404d00(0x1c1)][_0x404d00(0x212)+_0x404d00(0x1de)],pairCode=global[_0x404d00(0x1c1)][_0x404d00(0x1a3)+'e'];let auth=null,isDown=![];const logger=()=>{const _0x6ebc44=_0x404d00,_0x3d0426={'COevB':function(_0x5abc7c,_0x4ba629){return _0x5abc7c===_0x4ba629;},'uFMXA':_0x6ebc44(0x1f2),'sIQbH':function(_0x697994,_0x20b965){return _0x697994===_0x20b965;},'fhyIE':function(_0x3e502d,_0x32a6a0){return _0x3e502d instanceof _0x32a6a0;},'DoEwf':_0x6ebc44(0x215),'QOvef':function(_0x39245a,_0x451846){return _0x39245a(_0x451846);},'UeVlS':function(_0x2d2066,_0x3f20f5){return _0x2d2066>_0x3f20f5;},'UxLbw':function(_0x5302f3,_0x5e8c15){return _0x5302f3!==_0x5e8c15;},'shPPo':_0x6ebc44(0x1d1),'azldb':function(_0x351874,_0x4f8458){return _0x351874(_0x4f8458);},'sbaeY':_0x6ebc44(0x1c8),'awVML':function(_0x55af84,_0x343301,..._0x4fb25e){return _0x55af84(_0x343301,..._0x4fb25e);},'yVRpM':_0x6ebc44(0x21e),'AhzOq':function(_0x574b20,_0x3bb7f3,..._0x6417a5){return _0x574b20(_0x3bb7f3,..._0x6417a5);},'mBOVI':_0x6ebc44(0x1dd),'OWmrX':_0x6ebc44(0x1fc),'zPEzW':function(_0x204516,_0x5dc179){return _0x204516(_0x5dc179);},'RbqzZ':_0x6ebc44(0x1fe),'MSolP':_0x6ebc44(0x1c9)},_0x3f4360={'fatal':0x3c,'error':0x32,'warn':0x28,'info':0x1e,'debug':0x14,'trace':0xa},_0xa06f3=_0x3f4360[Bun[_0x6ebc44(0x188)][_0x6ebc44(0x1c5)+_0x6ebc44(0x1aa)]?.[_0x6ebc44(0x16d)+'e']()||_0x3d0426[_0x6ebc44(0x192)]],_0x2ceea1=_0x120c4b=>_0x3f4360[_0x120c4b]>=_0xa06f3,_0x36b500=_0x1b0487=>{const _0x4c472b=_0x6ebc44;if(_0x3d0426[_0x4c472b(0x1fa)](_0x1b0487,null))return _0x3d0426[_0x4c472b(0x176)];if(_0x3d0426[_0x4c472b(0x168)](_0x1b0487,undefined))return _0x4c472b(0x1f7);if(_0x3d0426[_0x4c472b(0x1ef)](_0x1b0487,Error))return _0x1b0487[_0x4c472b(0x1b6)]||_0x1b0487[_0x4c472b(0x1be)]();if(_0x3d0426[_0x4c472b(0x1fa)](typeof _0x1b0487,_0x3d0426[_0x4c472b(0x1a4)]))return Bun[_0x4c472b(0x21c)](_0x1b0487,{'colors':![],'depth':0x2});return _0x3d0426[_0x4c472b(0x200)](String,_0x1b0487);},_0x18822d=(_0x5366bc,..._0x2326a2)=>{const _0x1ae998=_0x6ebc44,_0x369be1=new Date()[_0x1ae998(0x218)+'ng']()[_0x1ae998(0x1db)](-0x134c+0x967+0x9e5,0xaa9+-0x2429+0x1985),_0xe3b5c9=_0x5366bc[_0x1ae998(0x175)+'e'](),_0x1f1f3f=_0x2326a2[_0x1ae998(0x17b)](_0x328238=>_0x36b500(_0x328238));let _0x10600f='',_0xd46a=null;_0x3d0426[_0x1ae998(0x1cc)](_0x2326a2[_0x1ae998(0x1d3)],0x2e*-0x6c+-0x1683+0x29eb)&&_0x3d0426[_0x1ae998(0x1fa)](typeof _0x2326a2[0x3*-0xc57+-0x1*0x1dda+0x42df],_0x3d0426[_0x1ae998(0x1a4)])&&_0x3d0426[_0x1ae998(0x201)](_0x2326a2[0x1*-0xbb7+-0x4ab*-0x7+-0x14f6],null)?(_0xd46a=_0x2326a2[-0x1ab9*-0x1+0x2380+0x1*-0x3e39],_0x10600f=_0x1f1f3f[_0x1ae998(0x1db)](0x331*-0x1+0x1*-0x62f+0x961*0x1)[_0x1ae998(0x177)]('\x20')):_0x10600f=_0x1f1f3f[_0x1ae998(0x177)]('\x20');if(_0xd46a&&Object[_0x1ae998(0x214)](_0xd46a)[_0x1ae998(0x1d3)]>0xe4b*0x1+-0x20e5+-0x129a*-0x1){const _0x3d2c3a=Object[_0x1ae998(0x199)](_0xd46a)[_0x1ae998(0x17b)](([_0xd9c78f,_0x4a5319])=>_0x1ae998(0x1ab)+_0xd9c78f+':\x20'+_0x36b500(_0x4a5319))[_0x1ae998(0x177)]('\x0a');return'['+_0x369be1+']\x20'+_0xe3b5c9+':\x20'+_0x10600f+'\x0a'+_0x3d2c3a;}return'['+_0x369be1+']\x20'+_0xe3b5c9+':\x20'+_0x10600f;};return{'level':_0x3d0426[_0x6ebc44(0x1a8)],'fatal':(..._0x4c2190)=>{const _0x15b3fb=_0x6ebc44;if(_0x2ceea1(_0x3d0426[_0x15b3fb(0x16c)]))console[_0x15b3fb(0x1c8)](_0x18822d(_0x15b3fb(0x1d1),..._0x4c2190));},'error':(..._0x331b5c)=>{const _0x182478=_0x6ebc44;if(_0x3d0426[_0x182478(0x1ff)](_0x2ceea1,_0x3d0426[_0x182478(0x178)]))console[_0x182478(0x1c8)](_0x3d0426[_0x182478(0x180)](_0x18822d,_0x3d0426[_0x182478(0x178)],..._0x331b5c));},'warn':(..._0xef87ac)=>{const _0xf66f4=_0x6ebc44;if(_0x2ceea1(_0x3d0426[_0xf66f4(0x1bc)]))console[_0xf66f4(0x21e)](_0x3d0426[_0xf66f4(0x19e)](_0x18822d,_0x3d0426[_0xf66f4(0x1bc)],..._0xef87ac));},'info':(..._0x4ee43d)=>{const _0x4024b4=_0x6ebc44;if(_0x2ceea1(_0x3d0426[_0x4024b4(0x192)]))console[_0x4024b4(0x1f0)](_0x3d0426[_0x4024b4(0x19e)](_0x18822d,_0x3d0426[_0x4024b4(0x192)],..._0x4ee43d));},'debug':(..._0x5c0dce)=>{const _0x271ad9=_0x6ebc44;if(_0x2ceea1(_0x3d0426[_0x271ad9(0x18b)]))console[_0x271ad9(0x1fc)](_0x3d0426[_0x271ad9(0x180)](_0x18822d,_0x3d0426[_0x271ad9(0x18b)],..._0x5c0dce));},'trace':(..._0x34995d)=>{const _0xcba731=_0x6ebc44;if(_0x3d0426[_0xcba731(0x183)](_0x2ceea1,_0x3d0426[_0xcba731(0x196)]))console[_0xcba731(0x1fe)](_0x18822d(_0x3d0426[_0xcba731(0x196)],..._0x34995d));},'child':()=>logger()};};let hotReloadCleanup=null,authState=null;async function pair(_0x2e1b3b){const _0x427142=_0x404d00,_0x4ff7f0={'xCkBe':function(_0xb0c562,_0x4ff124){return _0xb0c562===_0x4ff124;},'mzKcG':function(_0x58b404,_0x54d6ae){return _0x58b404(_0x54d6ae);},'fzaDf':function(_0x2f2215){return _0x2f2215();},'iGMHt':function(_0x301f47,_0x3aee5d,_0x2f50c0){return _0x301f47(_0x3aee5d,_0x2f50c0);}};return new Promise(_0x5f14ef=>{const _0x238fc1=_0x3f25,_0x7fae5={'LtOfg':function(_0x5aae68,_0x37e6dc){const _0xf2d7ee=_0x3f25;return _0x4ff7f0[_0xf2d7ee(0x1ec)](_0x5aae68,_0x37e6dc);},'nIICx':function(_0x4d97f5,_0x31525e){return _0x4d97f5(_0x31525e);},'FnwNk':function(_0x5aa9fa,_0x428ac1){const _0x2e5080=_0x3f25;return _0x4ff7f0[_0x2e5080(0x174)](_0x5aa9fa,_0x428ac1);},'cvydc':function(_0x2585c2){const _0x5983c4=_0x3f25;return _0x4ff7f0[_0x5983c4(0x1d4)](_0x2585c2);}},_0x14679c=_0x4ff7f0[_0x238fc1(0x217)](setTimeout,_0x5f14ef,0x857+0x2*-0x643+0xfe7),_0x4f6b41=_0x4ff7f0[_0x238fc1(0x217)](setInterval,()=>{const _0x32b27e=_0x238fc1;(_0x2e1b3b[_0x32b27e(0x208)]||_0x7fae5[_0x32b27e(0x20f)](_0x2e1b3b['ws']?.[_0x32b27e(0x185)],0x2ad*-0x2+0x6*-0x2ab+0x3*0x71f))&&(_0x7fae5[_0x32b27e(0x18a)](clearInterval,_0x4f6b41),_0x7fae5[_0x32b27e(0x17f)](clearTimeout,_0x14679c),_0x7fae5[_0x32b27e(0x1a6)](_0x5f14ef));},0xd4f+0x10f7*0x1+-0x1de2);})[_0x427142(0x1a7)](async()=>{const _0x17d139=_0x427142;try{let _0xd6e17=await _0x2e1b3b[_0x17d139(0x1c6)+_0x17d139(0x21b)](pairNum,pairCode);_0xd6e17=_0xd6e17?.[_0x17d139(0x1d8)](/.{1,4}/g)?.[_0x17d139(0x177)]('-')||_0xd6e17,global[_0x17d139(0x1ba)][_0x17d139(0x1dd)](_0x17d139(0x1cf)+'\x20'+_0xd6e17);}catch(_0x5da382){global[_0x17d139(0x1ba)][_0x17d139(0x1c8)]({'error':_0x5da382[_0x17d139(0x1b6)]},_0x17d139(0x21d));}});}global[_0x404d00(0x19f)]||={},global['db']||={},global['db'][_0x404d00(0x179)]||={},global['db'][_0x404d00(0x179)][_0x404d00(0x1a0)]||={},global['db'][_0x404d00(0x179)][_0x404d00(0x211)]||={};async function LIBIE(){const _0x22dbec=_0x404d00,_0x597371={'Zdmjt':function(_0x4cb429,_0x2b0802){return _0x4cb429===_0x2b0802;},'oLBMH':function(_0x4f3822,_0x103111){return _0x4f3822 instanceof _0x103111;},'zcbCH':_0x22dbec(0x1df)+_0x22dbec(0x1c3),'cAAAO':function(_0x392a46,_0x14484e){return _0x392a46 instanceof _0x14484e;},'nTuzL':_0x22dbec(0x1c7)+_0x22dbec(0x1e3)+_0x22dbec(0x221),'Fqerc':_0x22dbec(0x1c4)+_0x22dbec(0x1ee),'dzXiU':_0x22dbec(0x1e2)+_0x22dbec(0x190),'CUxqC':_0x22dbec(0x16a)+_0x22dbec(0x1e5),'LpGVs':function(_0xe7bafa){return _0xe7bafa();},'CKkxM':function(_0x1b698e){return _0x1b698e();},'nkGmW':_0x22dbec(0x1c9),'ISwyQ':_0x22dbec(0x1af),'MQgUF':function(_0x2a64aa,_0x5db82d){return _0x2a64aa(_0x5db82d);},'funcr':function(_0x4fd236,_0x234d56,_0xc51008){return _0x4fd236(_0x234d56,_0xc51008);},'brOJh':_0x22dbec(0x1c2)+'js'};authState=_0x597371[_0x22dbec(0x173)](useSQLiteAuthState),auth=authState;const {state:_0x37646b,saveCreds:_0x5c2967}=authState,{version:_0x3b58fb}=await _0x597371[_0x22dbec(0x16f)](fetchLatestBaileysVersion);global[_0x22dbec(0x1ba)][_0x22dbec(0x1dd)](_0x22dbec(0x19d)+'v'+_0x3b58fb[_0x22dbec(0x177)]('.')+_0x22dbec(0x1b4)+process[_0x22dbec(0x1d2)][_0x22dbec(0x175)+'e']());const _0x57eac7={'version':_0x3b58fb,'logger':{'level':_0x597371[_0x22dbec(0x1ca)],'info'(){},'error'(){},'warn'(){},'debug'(){},'trace'(){},'child'(){return this;}},'browser':Browsers[_0x22dbec(0x1a2)](_0x597371[_0x22dbec(0x1bd)]),'auth':_0x37646b};global[_0x22dbec(0x1e6)]=_0x597371[_0x22dbec(0x20d)](himejima,_0x57eac7),global[_0x22dbec(0x1e6)][_0x22dbec(0x1d7)]=![];!_0x37646b[_0x22dbec(0x20a)][_0x22dbec(0x21a)]&&pairNum&&await pair(global[_0x22dbec(0x1e6)]);const _0xc06040=new EventManager(),_0x4d5e40=new CleanupManager();global[_0x22dbec(0x1f1)+_0x22dbec(0x1a5)]=_0x4d5e40,global[_0x22dbec(0x181)+_0x22dbec(0x213)]=await _0xc06040[_0x22dbec(0x1b2)+_0x22dbec(0x19c)](_0x57eac7,_0x5c2967,_0x4d5e40);const _0x22551a=Bun[_0x22dbec(0x1f3)+_0x22dbec(0x182)](import.meta.url),_0x25b1d2=_0x597371[_0x22dbec(0x20d)](dirname,_0x22551a),_0x287075=_0x597371[_0x22dbec(0x206)](join,_0x25b1d2,_0x22dbec(0x19b)),_0x2d891f=new PluginCache(-0x1a51+-0x1239+0x4012);global[_0x22dbec(0x1a1)+'er']=_0x287075,await loadPlugins(_0x287075,(_0x5c7f58,_0x2b5220)=>getAllPlugins(_0x5c7f58,_0x2d891f,_0x2b5220));const _0x2eaa94=await import(_0x597371[_0x22dbec(0x1ed)]);_0xc06040[_0x22dbec(0x17a)](_0x2eaa94),hotReloadCleanup=initHotReload(_0x287075,async(_0xfb7338,_0x48da0f)=>{const _0xfaff15=_0x22dbec;try{if(_0x597371[_0xfaff15(0x1b5)](_0x48da0f,null)){const _0x4b03ef=global[_0xfaff15(0x19f)][_0xfb7338];if(_0x597371[_0xfaff15(0x189)](_0x4b03ef?.[_0xfaff15(0x1ea)],Function))try{await _0x4b03ef[_0xfaff15(0x1ea)]();}catch(_0x5cd342){global[_0xfaff15(0x1ba)][_0xfaff15(0x21e)]({'plugin':_0xfb7338,'error':_0x5cd342[_0xfaff15(0x1b6)]},_0xfaff15(0x17d)+_0xfaff15(0x1b7));}delete global[_0xfaff15(0x19f)][_0xfb7338],global[_0xfaff15(0x1ba)][_0xfaff15(0x1dd)]({'plugin':_0xfb7338},_0x597371[_0xfaff15(0x19a)]);return;}const _0x29e135=global[_0xfaff15(0x19f)][_0xfb7338];if(_0x597371[_0xfaff15(0x207)](_0x29e135?.[_0xfaff15(0x1ea)],Function))try{await _0x29e135[_0xfaff15(0x1ea)]();}catch(_0x418f74){global[_0xfaff15(0x1ba)][_0xfaff15(0x21e)]({'plugin':_0xfb7338,'error':_0x418f74[_0xfaff15(0x1b6)]},_0x597371[_0xfaff15(0x1fb)]);}global[_0xfaff15(0x19f)][_0xfb7338]=_0x48da0f;if(_0x597371[_0xfaff15(0x189)](_0x48da0f?.[_0xfaff15(0x1f5)],Function))try{await _0x48da0f[_0xfaff15(0x1f5)]();}catch(_0x5cd5fb){global[_0xfaff15(0x1ba)][_0xfaff15(0x21e)]({'plugin':_0xfb7338,'error':_0x5cd5fb[_0xfaff15(0x1b6)]},_0x597371[_0xfaff15(0x197)]);}global[_0xfaff15(0x1ba)][_0xfaff15(0x1dd)]({'plugin':_0xfb7338},_0x597371[_0xfaff15(0x18c)]);}catch(_0x50776a){global[_0xfaff15(0x1ba)][_0xfaff15(0x1c8)]({'plugin':_0xfb7338,'error':_0x50776a[_0xfaff15(0x1b6)],'stack':_0x50776a[_0xfaff15(0x198)]},_0x597371[_0xfaff15(0x1c0)]);}}),await global[_0x22dbec(0x181)+_0x22dbec(0x213)](),serialize();}async function shutdown(_0x2f7743){const _0x268046=_0x404d00,_0xad7407={'QzwQs':_0x268046(0x1bb)+_0x268046(0x1b0),'hcocB':_0x268046(0x1ad)+'rn','kHIij':function(_0x31b88f){return _0x31b88f();},'FYwwb':_0x268046(0x1e0)+_0x268046(0x18d)+'or','YbEvf':function(_0x114536,_0x4a8f8a){return _0x114536===_0x4a8f8a;},'DRSWP':_0x268046(0x216)+_0x268046(0x195),'joQdA':_0x268046(0x170),'oxyvY':_0x268046(0x222)+_0x268046(0x220),'BBrOZ':_0x268046(0x1f4)+_0x268046(0x221)};if(isDown)return;isDown=!![],global[_0x268046(0x1ba)][_0x268046(0x1dd)](_0x268046(0x1e7)+_0x2f7743+_0x268046(0x17e));try{const _0x3dfbad=_0xad7407[_0x268046(0x16e)][_0x268046(0x1f6)]('|');let _0x425e6d=-0x789+-0x157d*-0x1+0x4*-0x37d;while(!![]){switch(_0x3dfbad[_0x425e6d++]){case'0':if(global[_0x268046(0x1f1)+_0x268046(0x1a5)])try{global[_0x268046(0x1f1)+_0x268046(0x1a5)][_0x268046(0x1ea)](),global[_0x268046(0x1ba)][_0x268046(0x1fc)](_0x268046(0x1f9)+'ne');}catch(_0x1ed615){global[_0x268046(0x1ba)][_0x268046(0x21e)]({'error':_0x1ed615[_0x268046(0x1b6)]},_0xad7407[_0x268046(0x172)]);}continue;case'1':_0xad7407[_0x268046(0x1cd)](cleanupReconnect);continue;case'2':hotReloadCleanup&&(_0xad7407[_0x268046(0x1cd)](hotReloadCleanup),hotReloadCleanup=null);continue;case'3':try{_0xad7407[_0x268046(0x1cd)](runCleanupHandlers);}catch(_0x50a255){global[_0x268046(0x1ba)][_0x268046(0x21e)]({'error':_0x50a255[_0x268046(0x1b6)]},_0xad7407[_0x268046(0x202)]);}continue;case'4':global[_0x268046(0x1ba)][_0x268046(0x1dd)](_0x268046(0x1b1)+'k');continue;case'5':!global[_0x268046(0x171)+'t']&&(global[_0x268046(0x171)+'t']={'attempts':0x0,'lastAt':0x0,'cooldownUntil':0x0,'inflight':![],'timer':null,'keepAliveTimer':null});continue;case'6':if(auth&&_0xad7407[_0x268046(0x194)](typeof auth[_0x268046(0x20c)],_0x268046(0x16b)))try{await Promise[_0x268046(0x1d9)]([auth[_0x268046(0x20c)](),new Promise((_0xcb7ce,_0x707558)=>setTimeout(()=>_0x707558(new Error(_0x268046(0x184)+_0x268046(0x18f))),0x8ee+-0x5c3*-0x1+0x4d7))]),auth=null,global[_0x268046(0x1ba)][_0x268046(0x1fc)](_0xad7407[_0x268046(0x191)]);}catch(_0x3459aa){global[_0x268046(0x1ba)][_0x268046(0x1c8)]({'error':_0x3459aa[_0x268046(0x1b6)]},_0x268046(0x216)+_0x268046(0x1ac));}continue;case'7':if(global[_0x268046(0x21f)])try{global[_0x268046(0x21f)][_0x268046(0x1f8)](),global[_0x268046(0x1ba)][_0x268046(0x1fc)](_0xad7407[_0x268046(0x20e)]);}catch(_0xe607b7){global[_0x268046(0x1ba)][_0x268046(0x21e)]({'error':_0xe607b7[_0x268046(0x1b6)]},_0xad7407[_0x268046(0x1da)]);}continue;}break;}}catch(_0x34a23f){global[_0x268046(0x1ba)][_0x268046(0x1c8)]({'error':_0x34a23f[_0x268046(0x1b6)],'stack':_0x34a23f[_0x268046(0x198)]},_0xad7407[_0x268046(0x1e1)]);}}process['on'](_0x404d00(0x18e),async()=>{const _0x4ab2eb=_0x404d00,_0x422aeb={'xlkpC':function(_0x40f6c6,_0x19481d){return _0x40f6c6(_0x19481d);},'qcaGP':_0x4ab2eb(0x18e)};await _0x422aeb[_0x4ab2eb(0x1dc)](shutdown,_0x422aeb[_0x4ab2eb(0x17c)]),process[_0x4ab2eb(0x1e8)](-0x18ba+-0x1*0xba1+0x245b);}),process['on'](_0x404d00(0x1d0),async()=>{const _0xea4b34=_0x404d00;await shutdown(_0xea4b34(0x1d0)),process[_0xea4b34(0x1e8)](0x1*0x173a+0x26d1+-0x3e0b);}),process['on'](_0x404d00(0x204)+_0x404d00(0x1fd),async _0xab4e58=>{const _0x43d82a=_0x404d00,_0x488f29={'NXMbs':_0x43d82a(0x223),'bLRAT':function(_0x1272b8,_0x3838a3){return _0x1272b8(_0x3838a3);},'mkeKj':_0x43d82a(0x204)+_0x43d82a(0x1fd)};global[_0x43d82a(0x1ba)][_0x43d82a(0x1c8)]({'error':_0xab4e58[_0x43d82a(0x1b6)],'stack':_0xab4e58[_0x43d82a(0x198)]},_0x488f29[_0x43d82a(0x20b)]),await _0x488f29[_0x43d82a(0x1e4)](shutdown,_0x488f29[_0x43d82a(0x210)]),process[_0x43d82a(0x1e8)](-0x2*0xdbe+-0x716*-0x2+0xd51);}),process['on'](_0x404d00(0x219)+_0x404d00(0x1eb),async _0x4153db=>{const _0x5bdb87=_0x404d00,_0x5f4f37={'oFetB':_0x5bdb87(0x209),'ZdpgF':function(_0x32b861,_0x463bed){return _0x32b861(_0x463bed);},'ENHKy':_0x5bdb87(0x219)+_0x5bdb87(0x1eb)};global[_0x5bdb87(0x1ba)][_0x5bdb87(0x1c8)]({'error':_0x4153db?.[_0x5bdb87(0x1b6)],'stack':_0x4153db?.[_0x5bdb87(0x198)]},_0x5f4f37[_0x5bdb87(0x1e9)]),await _0x5f4f37[_0x5bdb87(0x1b3)](shutdown,_0x5f4f37[_0x5bdb87(0x1d6)]),process[_0x5bdb87(0x1e8)](-0x1*-0x2410+0x1*-0x1f9d+0x472*-0x1);}),LIBIE()[_0x404d00(0x193)](async _0x398b1f=>{const _0x525d93=_0x404d00,_0x503676={'vFKLH':_0x525d93(0x187),'vuKUI':function(_0x42d1b0,_0x812f7f){return _0x42d1b0(_0x812f7f);},'euAhQ':_0x525d93(0x1d1)};global[_0x525d93(0x1ba)][_0x525d93(0x1d1)]({'error':_0x398b1f[_0x525d93(0x1b6)],'stack':_0x398b1f[_0x525d93(0x198)]},_0x503676[_0x525d93(0x1cb)]),await _0x503676[_0x525d93(0x1d5)](shutdown,_0x503676[_0x525d93(0x1ce)]),process[_0x525d93(0x1e8)](-0x1050+-0x21bf+0x3210);});
+
+import "./config.js";
+import "#db";
+import { serialize } from "#core/message.js";
+import { useSQLiteAuthState } from "#auth";
+import { runCleanupHandlers } from "#lib/core/auth/config.js";
+import { Browsers, fetchLatestBaileysVersion } from "baileys";
+import { dirname, join } from "node:path";
+import {
+    PluginCache,
+    getAllPlugins,
+    loadPlugins,
+    initHotReload,
+    EventManager,
+    CleanupManager,
+    cleanupReconnect,
+} from "#core/connection.js";
+import { himejima } from "#core/socket.js";
+
+/**
+ * Pairing configuration from global config
+ * @private
+ * @type {Object}
+ */
+const pairNum = global.config.pairingNumber;
+const pairCode = global.config.pairingCode;
+
+/**
+ * Authentication state instance
+ * @private
+ * @type {Object|null}
+ */
+let auth = null;
+
+/**
+ * Shutdown prevention flag
+ * @private
+ * @type {boolean}
+ */
+let isDown = false;
+
+/**
+ * Creates a configurable logger instance for Baileys
+ * @function logger
+ * @returns {Object} Logger object with level-based methods
+ *
+ * @levels
+ * - fatal: Critical errors (60)
+ * - error: Runtime errors (50)
+ * - warn: Warnings (40)
+ * - info: Informational messages (30)
+ * - debug: Debug information (20)
+ * - trace: Detailed tracing (10)
+ * - silent: No logging (controlled by env var)
+ *
+ * @format
+ * - Timestamp: [HH:MM]
+ * - Level: UPPERCASE
+ * - Structured objects: Pretty-printed with indentation
+ * - Errors: Message and stack trace
+ */
+const logger = () => {
+    const LVL = {
+        fatal: 60,
+        error: 50,
+        warn: 40,
+        info: 30,
+        debug: 20,
+        trace: 10,
+    };
+
+    // Determine current log level from environment
+const curLvl = LVL[Bun.env.BAILEYS_LOG_LEVEL?.toLowerCase() || "info"];
+const should = (lvl) => LVL[lvl] >= curLvl;
+
+    /**
+     * Formats values for logging
+     * @private
+     * @function fmt
+     * @param {*} val - Value to format
+     * @returns {string} Formatted string
+     */
+    const fmt = (val) => {
+        if (val === null) return "null";
+        if (val === undefined) return "undefined";
+        if (val instanceof Error) return val.message || val.toString();
+        if (typeof val === "object") {
+            return Bun.inspect(val, { colors: false, depth: 2 });
+        }
+        return String(val);
+    };
+
+    /**
+     * Formats log entry with structured output
+     * @private
+     * @function fmtLog
+     * @param {string} lvl - Log level
+     * @param {...*} args - Arguments to log
+     * @returns {string} Formatted log string
+     */
+    const fmtLog = (lvl, ...args) => {
+        const time = new Date().toTimeString().slice(0, 5);
+        const lvlName = lvl.toUpperCase();
+        const fmtArgs = args.map((arg) => fmt(arg));
+
+        let msg = "";
+        let obj = null;
+
+        // Handle structured logging (first arg is object)
+        if (args.length > 0 && typeof args[0] === "object" && args[0] !== null) {
+            obj = args[0];
+            msg = fmtArgs.slice(1).join(" ");
+        } else {
+            msg = fmtArgs.join(" ");
+        }
+
+        // Pretty print objects
+        if (obj && Object.keys(obj).length > 0) {
+            const lines = Object.entries(obj)
+                .map(([k, v]) => `    ${k}: ${fmt(v)}`)
+                .join("\n");
+            return `[${time}] ${lvlName}: ${msg}\n${lines}`;
+        }
+        return `[${time}] ${lvlName}: ${msg}`;
+    };
+
+    return {
+        level: "silent",
+        fatal: (...args) => {
+            if (should("fatal")) console.error(fmtLog("fatal", ...args));
+        },
+        error: (...args) => {
+            if (should("error")) console.error(fmtLog("error", ...args));
+        },
+        warn: (...args) => {
+            if (should("warn")) console.warn(fmtLog("warn", ...args));
+        },
+        info: (...args) => {
+            if (should("info")) console.log(fmtLog("info", ...args));
+        },
+        debug: (...args) => {
+            if (should("debug")) console.debug(fmtLog("debug", ...args));
+        },
+        trace: (...args) => {
+            if (should("trace")) console.trace(fmtLog("trace", ...args));
+        },
+        child: () => logger(),
+    };
+};
+
+let hotReloadCleanup = null;
+let authState = null;
+
+/**
+ * Handles pairing code generation for first-time authentication
+ * @async
+ * @function pair
+ * @param {Object} conn - Baileys connection instance
+ * @returns {Promise<void>}
+ *
+ * @flow
+ * 1. Wait for connection readiness (3 second timeout)
+ * 2. Request pairing code from WhatsApp
+ * 3. Format code with dashes (XXXX-XXXX-XXXX)
+ * 4. Log pairing code for user
+ */
+async function pair(conn) {
+    return new Promise((res) => {
+        const t = setTimeout(res, 3000);
+
+        const chk = setInterval(() => {
+            if (conn.user || conn.ws?.readyState === 1) {
+                clearInterval(chk);
+                clearTimeout(t);
+                res();
+            }
+        }, 100);
+    }).then(async () => {
+        try {
+            let code = await conn.requestPairingCode(pairNum, pairCode);
+            code = code?.match(/.{1,4}/g)?.join("-") || code;
+            global.logger.info(`Pair code: ${code}`);
+        } catch (e) {
+            global.logger.error({ error: e.message }, "Pair error");
+        }
+    });
+}
+
+// === GLOBAL SAFETY INIT ===
+global.plugins ||= {}
+global.db ||= {}
+global.db.data ||= {}
+global.db.data.chats ||= {}
+global.db.data.settings ||= {}
+
+/**
+ * Main bot initialization function
+ * @async
+ * @function LIBIE
+ * @returns {Promise<void>}
+ *
+ * @initializationSteps
+ * 1. Initialize SQLite authentication state
+ * 2. Fetch latest Baileys version
+ * 3. Configure connection options
+ * 4. Create connection instance
+ * 5. Handle pairing if needed
+ * 6. Initialize event and cleanup managers
+ * 7. Load and register plugins
+ * 8. Start message handler
+ */
+async function LIBIE() {
+  authState = useSQLiteAuthState();
+  auth = authState;
+
+    const { state, saveCreds } = authState;
+    const { version: baileysVersion } = await fetchLatestBaileysVersion();
+
+    global.logger.info(
+        `[baileys] v${baileysVersion.join(".")} on ${process.platform.toUpperCase()}`
+    );
+
+    const connectionOptions = {
+      version: baileysVersion,
+    
+      // MATI TOTAL, GA ADA PINO
+      logger: {
+        level: "silent",
+        info() {},
+        error() {},
+        warn() {},
+        debug() {},
+        trace() {},
+        child() {
+          return this;
+        },
+      },
+
+  browser: Browsers.windows("Chrome"),
+  auth: state,
+};
+
+  global.conn = himejima(connectionOptions);
+  global.conn.isInit = false;
+  
+    // Handle pairing for new sessions
+    if (!state.creds.registered && pairNum) {
+        await pair(global.conn);
+    }
+
+    // Initialize managers
+    const evt = new EventManager();
+    const cln = new CleanupManager();
+    global.cleanupManager = cln;
+    
+
+    // Create reload handler for hot-reloading
+    global.reloadHandler = await evt.createReloadHandler(connectionOptions, saveCreds, cln);
+
+    // Determine plugin directory
+    const file = Bun.fileURLToPath(import.meta.url);
+    const src = dirname(file);
+    const plugDir = join(src, "./plugins");
+
+    // Load all plugins
+    const pluginCache = new PluginCache(5000);
+    
+    // Store plugin directory globally for reloading
+    global.pluginFolder = plugDir;
+    
+    // 1. load plugins dulu
+	await loadPlugins(
+	  plugDir,
+	  (dir, skipCache) => getAllPlugins(dir, pluginCache, skipCache)
+	)
+	
+	// 2. baru import handler
+	const hdl = await import("./handler.js")
+	evt.setHandler(hdl)
+    
+    
+    // INIT HOT RELOAD (INI YANG BIKIN BOT LU "HIDUP")
+    hotReloadCleanup = initHotReload(
+      plugDir,
+      async (filename, module) => {
+        try {
+          // FILE DIHAPUS
+          if (module === null) {
+            const oldPlugin = global.plugins[filename];
+    
+            if (oldPlugin?.cleanup instanceof Function) {
+              try {
+                await oldPlugin.cleanup();
+              } catch (e) {
+                global.logger.warn(
+                  { plugin: filename, error: e.message },
+                  "Plugin cleanup error"
+                );
+              }
+            }
+    
+            delete global.plugins[filename];
+            global.logger.info({ plugin: filename }, "Plugin removed");
+            return;
+          }
+    
+          // FILE DITAMBAH / DIUPDATE
+          const oldPlugin = global.plugins[filename];
+    
+          if (oldPlugin?.cleanup instanceof Function) {
+            try {
+              await oldPlugin.cleanup();
+            } catch (e) {
+              global.logger.warn(
+                { plugin: filename, error: e.message },
+                "Old plugin cleanup error"
+              );
+            }
+          }
+    
+          global.plugins[filename] = module;
+    
+          if (module?.init instanceof Function) {
+            try {
+              await module.init();
+            } catch (e) {
+              global.logger.warn(
+                { plugin: filename, error: e.message },
+                "Plugin init error"
+              );
+            }
+          }
+    
+          global.logger.info({ plugin: filename }, "Plugin reloaded");
+        } catch (e) {
+          global.logger.error(
+            { plugin: filename, error: e.message, stack: e.stack },
+            "Hot reload error"
+          );
+        }
+      }
+    );
+
+    // Start the bot
+    await global.reloadHandler();
+    serialize();
+}
+
+/**
+ * Graceful shutdown procedure
+ * @async
+ * @function shutdown
+ * @param {string} sig - Signal that triggered shutdown
+ * @returns {Promise<void>}
+ *
+ * @cleanupSequence
+ * 1. Prevent re-entrance with isDown flag
+ * 2. Cleanup reconnection timers
+ * 3. Execute cleanup manager tasks
+ * 4. Dispose authentication state
+ * 5. Close database connections
+ * 6. Log shutdown completion
+ */
+async function shutdown(sig) {
+    if (isDown) return;
+    isDown = true;
+
+    global.logger.info(`Shutdown (${sig})...`);
+
+    try {
+        // Initialize reconnect tracking if not exists
+        if (!global.__reconnect) {
+            global.__reconnect = {
+                attempts: 0,
+                lastAt: 0,
+                cooldownUntil: 0,
+                inflight: false,
+                timer: null,
+                keepAliveTimer: null,
+            };
+        }
+
+        // Cleanup reconnection logic
+        cleanupReconnect();
+
+        // Execute cleanup manager tasks
+        if (global.cleanupManager) {
+            try {
+                global.cleanupManager.cleanup();
+                global.logger.debug("Cleanup done");
+            } catch (e) {
+                global.logger.warn({ error: e.message }, "Cleanup warn");
+            }
+        }
+
+        // Dispose authentication state
+        if (auth && typeof auth._dispose === "function") {
+            try {
+                await Promise.race([
+                    auth._dispose(),
+                    new Promise((_, rej) =>
+                        setTimeout(() => rej(new Error("Dispose timeout")), 5000)
+                    ),
+                ]);
+                auth = null;
+                global.logger.debug("Auth disposed");
+            } catch (e) {
+                global.logger.error({ error: e.message }, "Auth dispose error");
+            }
+        }
+
+        // Run AuthDatabase cleanup (flushes write buffer)
+        try {
+            runCleanupHandlers();
+        } catch (e) {
+            global.logger.warn({ error: e.message }, "Cleanup handlers error");
+        }
+
+        // Close database connections
+        if (global.sqlite) {
+            try {
+                global.sqlite.close();
+                global.logger.debug("DB closed");
+            } catch (e) {
+                global.logger.warn({ error: e.message }, "DB close warn");
+            }
+        }
+        
+        if (hotReloadCleanup) {
+          hotReloadCleanup();
+          hotReloadCleanup = null;
+        }
+
+        global.logger.info("Shutdown ok");
+    } catch (e) {
+        global.logger.error({ error: e.message, stack: e.stack }, "Shutdown error");
+    }
+}
+
+/**
+ * SIGTERM signal handler (graceful termination)
+ * @listens SIGTERM
+ */
+process.on("SIGTERM", async () => {
+    await shutdown("SIGTERM");
+    process.exit(0);
+});
+
+/**
+ * SIGINT signal handler (Ctrl+C interruption)
+ * @listens SIGINT
+ */
+process.on("SIGINT", async () => {
+    await shutdown("SIGINT");
+    process.exit(0);
+});
+
+/**
+ * Uncaught exception handler
+ * @listens uncaughtException
+ * @param {Error} e - Uncaught exception
+ */
+process.on("uncaughtException", async (e) => {
+    global.logger.error({ error: e.message, stack: e.stack }, "Uncaught");
+    await shutdown("uncaughtException");
+    process.exit(1);
+});
+
+/**
+ * Unhandled promise rejection handler
+ * @listens unhandledRejection
+ * @param {Error} e - Unhandled rejection
+ */
+process.on("unhandledRejection", async (e) => {
+    global.logger.error({ error: e?.message, stack: e?.stack }, "Unhandled");
+    await shutdown("unhandledRejection");
+    process.exit(1);
+});
+
+// ================================================================
+// 🚀 WEBHOOK SERVER (PAKASIR) - JALAN BERSAMA BOT
+// ================================================================
+
+import { Database } from "bun:sqlite";
+import { checkPayment } from "./lib/pakasir.js";
+
+function rupiah(amount) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
+// Jalankan webhook server di port 3001 (non-blocking)
+Bun.serve({
+  port: 3001,
+  async fetch(req) {
+    const url = new URL(req.url);
+
+    // ===== WEBHOOK PAKASIR =====
+    if (req.method === 'POST' && url.pathname === '/webhook/pakasir') {
+      try {
+        const body = await req.json();
+        console.log('📩 Webhook received:', body);
+
+        const { order_id, status, amount, project } = body;
+
+        // Hanya proses jika status = completed/success/paid
+        if (status !== 'completed' && status !== 'success' && status !== 'paid') {
+          return new Response(JSON.stringify({ status: 'ignored' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        const DB_PATH = join(process.cwd(), "src", "database", "database.db");
+        const db = new Database(DB_PATH);
+
+        // Cari order di database
+        const order = db.prepare(`
+          SELECT * FROM orders WHERE id = ? AND status = 'pending'
+        `).get(order_id);
+
+        if (!order) {
+          console.log('⚠️ Order not found:', order_id);
+          return new Response(JSON.stringify({ status: 'order not found' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Jangan percaya body webhook mentah-mentah (siapa pun bisa POST ke endpoint ini).
+        // Cocokkan nominal dulu, lalu verifikasi ulang langsung ke API Pakasir sebelum kredit item.
+        if (Number(amount) !== order.total_price) {
+          console.log('⚠️ Amount mismatch:', order_id, 'expected', order.total_price, 'got', amount);
+          return new Response(JSON.stringify({ status: 'amount mismatch' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        try {
+          const verified = await checkPayment(order_id, order.total_price);
+          const verifiedStatus = String(
+            verified?.status ?? verified?.payment_status ?? verified?.transaction_status ?? ''
+          ).toLowerCase();
+
+          if (!['completed', 'success', 'paid'].includes(verifiedStatus)) {
+            console.log('⚠️ Verifikasi Pakasir belum "paid" untuk order:', order_id, verified);
+            return new Response(JSON.stringify({ status: 'not verified' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } catch (err) {
+          console.error('❌ Gagal verifikasi ke Pakasir:', order_id, err.message);
+          return new Response(JSON.stringify({ status: 'verification error' }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Ambil user dari global.rpg
+        const user = global.rpg?.data?.user?.[order.user_id];
+        if (!user) {
+          console.log('⚠️ User not found:', order.user_id);
+          return new Response(JSON.stringify({ status: 'user not found' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==== PROSES AUTOBUY ====
+        const item = order.item.toLowerCase();
+        const qty = order.quantity;
+
+        if (item === 'limit') {
+          user.user_limit = (user.user_limit || 0) + qty;
+        } else if (item === 'exp') {
+          user.exp = (user.exp || 0) + qty;
+        } else if (item === 'koinexpg') {
+          user.koinexpg = (user.koinexpg || 0) + qty;
+        } else {
+          if (user[item] !== undefined) {
+            user[item] = (user[item] || 0) + qty;
+          } else {
+            user.common = (user.common || 0) + qty;
+          }
+        }
+
+        // Update status order
+        db.run(`
+          UPDATE orders SET status = 'paid', updated_at = unixepoch() WHERE id = ?
+        `, order_id);
+
+        console.log(`✅ Order ${order_id} processed: +${qty} ${item}`);
+
+        // ==== KIRIM NOTIFIKASI KE USER ====
+        const conn = global.conn;
+        if (conn) {
+          try {
+            await conn.sendMessage(order.user_id, {
+              text: `✅ *Pembayaran berhasil!*\n\n` +
+                `🆔 Order: ${order_id}\n` +
+                `📦 Item: ${qty} ${item}\n` +
+                `💰 Total: ${rupiah(order.total_price)}\n\n` +
+                `_Item telah ditambahkan ke akunmu._ 🛍️`
+            });
+            console.log(`📨 Notifikasi terkirim ke ${order.user_id}`);
+          } catch (err) {
+            console.error('❌ Gagal kirim notifikasi:', err.message);
+          }
+        }
+
+        // Notifikasi ke owner
+        const owner = global.config?.owner || '';
+        if (owner && conn) {
+          try {
+            await conn.sendMessage(owner, {
+              text: `✅ *Webhook: Order Selesai*\n\n` +
+                `🆔 Order: ${order_id}\n` +
+                `👤 User: ${order.user_id}\n` +
+                `📦 Item: ${qty} ${item}\n` +
+                `💰 Total: ${rupiah(order.total_price)}`
+            });
+          } catch (e) {}
+        }
+
+        return new Response(JSON.stringify({ status: 'success' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+      } catch (err) {
+        console.error('❌ Webhook error:', err);
+        return new Response(JSON.stringify({ status: 'error', message: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // ===== PING =====
+    if (req.method === 'GET' && url.pathname === '/ping') {
+      return new Response('pong', { status: 200 });
+    }
+
+    return new Response('Not found', { status: 404 });
+  }
+});
+
+console.log('✅ Webhook server running on port 3001');
+console.log('📍 Webhook URL: https://your-tunnel-url/webhook/pakasir');
+
+/**
+ * Main execution entry point
+ * @async
+ * @execution
+ * - Calls LIBIE() to initialize bot
+ * - Handles fatal errors with shutdown
+ * - Exits with appropriate code
+ */
+LIBIE().catch(async (e) => {
+    global.logger.fatal({ error: e.message, stack: e.stack }, "Fatal");
+    await shutdown("fatal");
+    process.exit(1);
+});

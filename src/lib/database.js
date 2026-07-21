@@ -260,6 +260,25 @@ const SCHEMAS = {
     },
     indices: ["CREATE INDEX IF NOT EXISTS idx_user_jid ON user(jid)"],
   },
+
+  // ========== TABEL ORDERS UNTUK AUTOBUY ==========
+  orders: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      user_id: "TEXT NOT NULL",
+      item: "TEXT NOT NULL",
+      quantity: "INTEGER DEFAULT 1",
+      total_price: "INTEGER NOT NULL",
+      status: "TEXT DEFAULT 'pending'",
+      payment_id: "TEXT",
+      created_at: "INTEGER DEFAULT (unixepoch())",
+      updated_at: "INTEGER",
+    },
+    indices: [
+      "CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)",
+      "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)",
+    ],
+  },
 };
 
 /**
