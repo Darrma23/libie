@@ -89,6 +89,45 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
   if (!harga[item])
     return m.reply('❌ Item tidak tersedia.')
 
+<<<<<<< Updated upstream
+=======
+  // ================= QRIS ITEMS =================
+   if (harga[item]?.qris && action === 'buy') {
+     const total = harga[item].buy * count
+     const orderId = `SHOP-${Date.now()}-${m.sender.slice(0, 6)}`
+   
+     db.run(`
+       INSERT INTO orders (id, user_id, item, quantity, total_price, status)
+       VALUES (?, ?, ?, ?, ?, 'pending')
+     `, orderId, m.sender, item, count, total)
+   
+     try {
+       const payment = await createPayment(orderId, total, user.name || 'Customer')
+   
+       // === BUAT QRIS JADI GAMBAR ===
+       const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(payment.qr_string)}`
+   
+       // Kirim gambar QRIS
+       await conn.sendMessage(m.chat, {
+         image: { url: qrImageUrl },
+         caption:
+           `🛒 *Order ${item}*\n\n` +
+           `📦 ${count} ${item}\n` +
+           `💰 Total: ${rupiah(total)}\n` +
+           `🆔 Order ID: *${orderId}*\n` +
+           `⏰ Kadaluarsa: ${payment.expired_at ? new Date(payment.expired_at).toLocaleString() : '15 menit'}\n\n` +
+           `_Scan QRIS di atas untuk membayar._\n` +
+           `_Pembayaran otomatis terdeteksi._`
+       }, { quoted: m })
+   
+       return
+     } catch (err) {
+       console.error('QRIS Error:', err)
+       return m.reply(`❌ Gagal generate QRIS. Silakan transfer manual.\nTotal: ${rupiah(total)}`)
+     }
+   }
+
+>>>>>>> Stashed changes
   // ================= JUAL LIMIT =================
   if (item === 'limit' && action === 'sell') {
     if (user.user_limit < count) return m.reply('❌ Limit kurang')
@@ -115,6 +154,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
   const total = harga[item][action] * count
 
   if (action === 'buy') {
+<<<<<<< Updated upstream
     // ---- Bayar pakai saldo (money) dari DB dulu ----
     if (user.money >= total) {
       user.money -= total
@@ -158,6 +198,12 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
       console.error('QRIS Error:', err)
       return m.reply(`❌ Uang kurang (${rupiah(total)}) & gagal generate QRIS. Silakan coba lagi.`)
     }
+=======
+    if (user.money < total) return m.reply(`❌ Uang kurang (${rupiah(total)})`)
+    user.money -= total
+    user[item] = (user[item] || 0) + count
+    return m.reply(`✅ Beli ${count} ${item}\n💰 -${rupiah(total)}`)
+>>>>>>> Stashed changes
   }
 
   if (action === 'sell') {
