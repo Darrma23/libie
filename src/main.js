@@ -55,7 +55,7 @@ let isDown = false;
  * @levels
  * - fatal: Critical errors (60)
  * - error: Runtime errors (50)
- * - warn: Warnings (40)
+ * * - warn: Warnings (40)
  * - info: Informational messages (30)
  * - debug: Debug information (20)
  * - trace: Detailed tracing (10)
@@ -485,12 +485,11 @@ process.on("unhandledRejection", async (e) => {
     process.exit(1);
 });
 
-// ================================================================
+// ===============================================================
 // 🚀 WEBHOOK SERVER (PAKASIR) - JALAN BERSAMA BOT
-// ================================================================
+// ===============================================================
 
-import { Database } from "bun:sqlite";
-import { checkPayment } from "./lib/pakasir.js";
+import { checkTransaction } from "./lib/pakasir.js";
 
 function rupiah(amount) {
   return new Intl.NumberFormat('id-ID', {
@@ -522,13 +521,19 @@ Bun.serve({
           });
         }
 
-        const DB_PATH = join(process.cwd(), "src", "database", "database.db");
-        const db = new Database(DB_PATH);
+        // Cek database tersedia
+        if (!global.sqlite) {
+          console.error('❌ Database belum inisialisasi');
+          return new Response(JSON.stringify({ status: 'db not ready' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
 
         // Cari order di database
-        const order = db.prepare(`
-          SELECT * FROM orders WHERE id = ? AND status = 'pending'
-        `).get(order_id);
+        const order = global.sqlite
+          .prepare(`SELECT * FROM orders WHERE id = ? AND status = 'pending'`)
+          .get(order_id);
 
         if (!order) {
           console.log('⚠️ Order not found:', order_id);
@@ -538,8 +543,7 @@ Bun.serve({
           });
         }
 
-        // Jangan percaya body webhook mentah-mentah (siapa pun bisa POST ke endpoint ini).
-        // Cocokkan nominal dulu, lalu verifikasi ulang langsung ke API Pakasir sebelum kredit item.
+        // Verifikasi nominal
         if (Number(amount) !== order.total_price) {
           console.log('⚠️ Amount mismatch:', order_id, 'expected', order.total_price, 'got', amount);
           return new Response(JSON.stringify({ status: 'amount mismatch' }), {
@@ -548,13 +552,14 @@ Bun.serve({
           });
         }
 
+        // Verifikasi ulang ke API Pakasir
         try {
-          const verified = await checkPayment(order_id, order.total_price);
+          const verified = await checkTransaction(order_id, order.total_price);
           const verifiedStatus = String(
             verified?.status ?? verified?.payment_status ?? verified?.transaction_status ?? ''
           ).toLowerCase();
 
-          if (!['completed', 'success', 'paid'].includes(verifiedStatus)) {
+          if (!['completed', 'success', 'paid', 'PAID'].includes(verifiedStatus)) {
             console.log('⚠️ Verifikasi Pakasir belum "paid" untuk order:', order_id, verified);
             return new Response(JSON.stringify({ status: 'not verified' }), {
               status: 200,
@@ -569,8 +574,11 @@ Bun.serve({
           });
         }
 
-        // Ambil user dari global.rpg
-        const user = global.rpg?.data?.user?.[order.user_id];
+        // Ambil user dari database langsung
+        const user = global.sqlite
+          .prepare(`SELECT * FROM user WHERE jid = ?`)
+          .get(order.user_id);
+
         if (!user) {
           console.log('⚠️ User not found:', order.user_id);
           return new Response(JSON.stringify({ status: 'user not found' }), {
@@ -579,39 +587,131 @@ Bun.serve({
           });
         }
 
-        // ==== PROSES AUTOBUY ====
-        const item = order.item.toLowerCase();
+        // ============================================================
+        // PROSES AUTOBUY - PAKAI SQL LANGSUNG
+        // ============================================================
+        
+        const metadata = JSON.parse(order.metadata || '{}');
+        const itemType = metadata.type || order.item.toLowerCase().split(' ')[0];
         const qty = order.quantity;
 
-        if (item === 'limit') {
-          user.user_limit = (user.user_limit || 0) + qty;
-        } else if (item === 'exp') {
-          user.exp = (user.exp || 0) + qty;
-        } else if (item === 'koinexpg') {
-          user.koinexpg = (user.koinexpg || 0) + qty;
-        } else {
-          if (user[item] !== undefined) {
-            user[item] = (user[item] || 0) + qty;
-          } else {
-            user.common = (user.common || 0) + qty;
+        switch(itemType) {
+          case 'limit': {
+            const limitAmount = metadata.limit_amount || parseInt(order.item.split(' ')[1]) || qty;
+            const currentLimit = user.user_limit || 0;
+            const newLimit = currentLimit + limitAmount;
+            
+            global.sqlite
+              .prepare(`UPDATE user SET user_limit = ? WHERE jid = ?`)
+              .run(newLimit, order.user_id);
+            
+            console.log(`✅ +${limitAmount} Limit untuk ${order.user_id}`);
+            break;
+          }
+
+          case 'rent': {
+            const rentDays = metadata.duration || parseInt(order.item.split(' ')[1]) || 7;
+            const rentExpired = metadata.expired_at || Math.floor(Date.now() / 1000) + (rentDays * 86400);
+            
+            const existingRent = global.sqlite
+              .prepare(`SELECT * FROM rent WHERE jid = ?`)
+              .get(order.user_id);
+            
+            if (!existingRent) {
+              global.sqlite
+                .prepare(`INSERT INTO rent (jid, expired, created_at, updated_at) VALUES (?, ?, unixepoch(), unixepoch())`)
+                .run(order.user_id, rentExpired);
+              console.log(`✅ Rent Group baru ${rentDays} hari untuk ${order.user_id}`);
+            } else {
+              const currentExpired = existingRent.expired || 0;
+              const now = Math.floor(Date.now() / 1000);
+              const newExpired = Math.max(currentExpired, now) + (rentDays * 86400);
+              global.sqlite
+                .prepare(`UPDATE rent SET expired = ?, updated_at = unixepoch() WHERE jid = ?`)
+                .run(newExpired, order.user_id);
+              console.log(`✅ Rent Group diperpanjang ${rentDays} hari untuk ${order.user_id}`);
+            }
+            break;
+          }
+
+          case 'jadibot': {
+            const jdDays = metadata.duration || parseInt(order.item.split(' ')[1]) || 7;
+            const jdExpired = metadata.expired_at || Math.floor(Date.now() / 1000) + (jdDays * 86400);
+            
+            const existingJadibot = global.sqlite
+              .prepare(`SELECT * FROM jadibot WHERE jid = ?`)
+              .get(order.user_id);
+            
+            if (!existingJadibot) {
+              global.sqlite
+                .prepare(`INSERT INTO jadibot (jid, expired, created_at, updated_at) VALUES (?, ?, unixepoch(), unixepoch())`)
+                .run(order.user_id, jdExpired);
+              console.log(`✅ Jadibot baru ${jdDays} hari untuk ${order.user_id}`);
+            } else {
+              const currentExpired = existingJadibot.expired || 0;
+              const now = Math.floor(Date.now() / 1000);
+              const newExpired = Math.max(currentExpired, now) + (jdDays * 86400);
+              global.sqlite
+                .prepare(`UPDATE jadibot SET expired = ?, updated_at = unixepoch() WHERE jid = ?`)
+                .run(newExpired, order.user_id);
+              console.log(`✅ Jadibot diperpanjang ${jdDays} hari untuk ${order.user_id}`);
+            }
+            break;
+          }
+
+          default: {
+            // Cek apakah kolom ada di user
+            const columns = global.sqlite
+              .prepare(`PRAGMA table_info(user)`)
+              .all()
+              .map(col => col.name);
+            
+            if (columns.includes(itemType)) {
+              const currentValue = user[itemType] || 0;
+              const newValue = currentValue + qty;
+              global.sqlite
+                .prepare(`UPDATE user SET ${itemType} = ? WHERE jid = ?`)
+                .run(newValue, order.user_id);
+              console.log(`✅ +${qty} ${itemType} untuk ${order.user_id}`);
+            } else {
+              const currentCommon = user.common || 0;
+              const newCommon = currentCommon + qty;
+              global.sqlite
+                .prepare(`UPDATE user SET common = ? WHERE jid = ?`)
+                .run(newCommon, order.user_id);
+              console.log(`✅ +${qty} ${itemType} (disimpan sebagai common) untuk ${order.user_id}`);
+            }
+            break;
           }
         }
 
         // Update status order
-        db.run(`
-          UPDATE orders SET status = 'paid', updated_at = unixepoch() WHERE id = ?
-        `, order_id);
+        global.sqlite
+          .prepare(`UPDATE orders SET status = 'paid', updated_at = unixepoch() WHERE id = ?`)
+          .run(order_id);
 
-        console.log(`✅ Order ${order_id} processed: +${qty} ${item}`);
+        console.log(`✅ Order ${order_id} processed successfully!`);
 
         // ==== KIRIM NOTIFIKASI KE USER ====
         const conn = global.conn;
         if (conn) {
           try {
+            let itemDisplay = order.item;
+            if (itemType === 'limit') {
+              const limitAmount = metadata.limit_amount || parseInt(order.item.split(' ')[1]) || qty;
+              itemDisplay = `Limit ${limitAmount}`;
+            } else if (itemType === 'rent') {
+              const days = metadata.duration || parseInt(order.item.split(' ')[1]) || 7;
+              itemDisplay = `Rent Group ${days} Hari`;
+            } else if (itemType === 'jadibot') {
+              const days = metadata.duration || parseInt(order.item.split(' ')[1]) || 7;
+              itemDisplay = `Jadibot ${days} Hari`;
+            }
+
             await conn.sendMessage(order.user_id, {
-              text: `✅ *Pembayaran berhasil!*\n\n` +
+              text: `✅ *Pembayaran Berhasil!*\n\n` +
                 `🆔 Order: ${order_id}\n` +
-                `📦 Item: ${qty} ${item}\n` +
+                `📦 Item: ${itemDisplay}\n` +
                 `💰 Total: ${rupiah(order.total_price)}\n\n` +
                 `_Item telah ditambahkan ke akunmu._ 🛍️`
             });
@@ -629,7 +729,7 @@ Bun.serve({
               text: `✅ *Webhook: Order Selesai*\n\n` +
                 `🆔 Order: ${order_id}\n` +
                 `👤 User: ${order.user_id}\n` +
-                `📦 Item: ${qty} ${item}\n` +
+                `📦 Item: ${order.item}\n` +
                 `💰 Total: ${rupiah(order.total_price)}`
             });
           } catch (e) {}
@@ -659,7 +759,7 @@ Bun.serve({
 });
 
 console.log('✅ Webhook server running on port 3001');
-console.log('📍 Webhook URL: https://your-tunnel-url/webhook/pakasir');
+console.log('📍 Webhook URL: https://webhook.libieapiofficial.dpdns.org/webhook/pakasir');
 
 /**
  * Main execution entry point
