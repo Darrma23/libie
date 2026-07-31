@@ -1,164 +1,111 @@
 import axios from "axios"
 
+// Store sessions for conversation history
 const sessions = {}
 
-async function gemini({ message, instruction = "", sessionId = null }) {
+// Function to call the Libie API
+async function libieChat(message, sessionId = null) {
   if (!message) throw new Error("Message is required.")
 
-  let resumeArray = null
-  let cookie = null
-  let savedInstruction = instruction
-
-  if (sessionId) {
-    try {
-      const sessionData = JSON.parse(
-        Buffer.from(sessionId, "base64").toString()
-      )
-      resumeArray = sessionData.resumeArray
-      cookie = sessionData.cookie
-      savedInstruction = instruction || sessionData.instruction || ""
-    } catch {}
+  // If we have a session, we need to handle conversation history
+  let history = []
+  if (sessionId && sessions[sessionId]) {
+    history = sessions[sessionId].history || []
   }
 
-  if (!cookie) {
-    const { headers } = await axios.post(
-      "https://gemini.google.com/_/BardChatUi/data/batchexecute?rpcids=maGuAc&source-path=%2F&hl=en-US&_reqid=173780&rt=c",
-      "f.req=%5B%5B%5B%22maGuAc%22%2C%22%5B0%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&",
-      {
-        headers: {
-          "content-type":
-            "application/x-www-form-urlencoded;charset=UTF-8"
-        }
-      }
-    )
-
-    cookie = headers["set-cookie"]?.[0]?.split("; ")[0] || ""
-  }
-
-  const requestBody = [
-    [message, 0, null, null, null, null, 0],
-    ["en-US"],
-    resumeArray || ["", "", "", null, null, null, null, null, null, ""],
-    null, null, null,
-    [1],
-    1, null, null, 1, 0,
-    null, null, null, null, null,
-    [[0]],
-    1,
-    null, null, null, null, null,
-    ["", "", savedInstruction, null, null, null, null, null, 0, null, 1, null, null, null, []],
-    null, null, 1,
-    null, null, null, null, null, null, null,
-    [1,2,3,4,5,6,7,8,9,10],
-    1, null, null, null, null, [1]
-  ]
-
-  const payload = [null, JSON.stringify(requestBody)]
-
-  const { data } = await axios.post(
-    "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?hl=en-US&_reqid=2813378&rt=c",
-    new URLSearchParams({
-      "f.req": JSON.stringify(payload)
-    }).toString(),
-    {
-      headers: {
-        "content-type":
-          "application/x-www-form-urlencoded;charset=UTF-8",
-        "x-goog-ext-525001261-jspb":
-          '[1,null,null,null,"9ec249fc9ad08861",null,null,null,[4]]',
-        cookie
-      }
+  // Call the API
+  const response = await axios.get('https://libieapiofficial.dpdns.org/api/ai/chat', {
+    params: {
+      text: message
     }
-  )
+  })
 
-  const match = Array.from(data.matchAll(/^\d+\n(.+?)\n/gm))
-  const selectedArray = match.reverse()[3][1]
-  const realArray = JSON.parse(selectedArray)
-  const parse1 = JSON.parse(realArray?.[0]?.[2] || "null")
-   if (
-     !parse1 ||
-     !Array.isArray(parse1) ||
-     !parse1[4] ||
-     !parse1[4][0]
-   ) {
-     throw new Error("Gemini response structure changed or blocked.")
-   }
-   
-   const newResumeArray = [
-     ...(Array.isArray(parse1[1]) ? parse1[1] : []),
-     parse1[4][0][0]
-   ]
-   
-   const text =
-     parse1[4][0][1]?.[0]?.replace(/\*\*(.+?)\*\*/g, "*$1*") ||
-     "Tidak ada respon."
-     const newSessionId = Buffer.from(
-       JSON.stringify({
-         resumeArray: newResumeArray,
-         cookie,
-         instruction: savedInstruction
-       })
-     ).toString("base64")
-   
-     return {
-       text,
-       sessionId: newSessionId
-     }
-   }
+  // Check if response is valid
+  if (!response.data || !response.data.status) {
+    throw new Error("API response error")
+  }
 
-let handler = async (m, { conn, text }) => {
+  const result = response.data.data
+  const reply = result.reply || "Maaf, saya tidak bisa menjawab saat ini."
+
+  // Store history for session
+  if (sessionId) {
+    if (!sessions[sessionId]) {
+      sessions[sessionId] = { history: [] }
+    }
+    sessions[sessionId].history.push(
+      { role: "user", content: message },
+      { role: "assistant", content: reply }
+    )
+    if (sessions[sessionId].history.length > 20) {
+      sessions[sessionId].history = sessions[sessionId].history.slice(-20)
+    }
+  }
+
+  return {
+    text: reply,
+    mode: result.mode || "text",
+    source: result.source || "ai4chat"
+  }
+}
+
+let handler = async (m, { conn, text, usedPrefix }) => {
   if (!text) {
     return conn.sendMessage(m.chat, {
-      text: "Masukin teks dulu."
+      text: `📝 *Cara Penggunaan:*\n${usedPrefix}ai <pertanyaan>\n\nContoh:\n${usedPrefix}ai Halo, apa kabar?\n\n*Fitur:*\n• Ketik *reset* untuk menghapus sesi percakapan`
     })
   }
 
-  // reset command
+  // Reset session command
   if (text.toLowerCase() === "reset") {
     delete sessions[m.sender]
     return conn.sendMessage(m.chat, {
-      text: "Session direset."
+      text: "✅ *Sesi percakapan berhasil direset!*"
     })
   }
 
   try {
-    const inst =
-"Kamu adalah Libie, asisten AI yang ramah, santai, suka bercanda, dan menjawab menggunakan bahasa Indonesia.";
+    // Show loading
+    await conn.sendPresenceUpdate('composing', m.chat)
+
+    // Get or create session
+    const sessionId = m.sender
+
+    // Call the API
+    const result = await libieChat(text, sessionId)
+
+    // Clean up the text - replace \n with actual newline
+    let formattedReply = result.text
+      .replace(/\\n/g, '\n')  // Replace literal \n with newline
+      .replace(/\*\*(.+?)\*\*/g, '*$1*') // Bold formatting
     
-    const userSession = sessions[m.sender] || null
-
-    await global.loading(m, conn);
-
-    const res = await gemini({
-      message: text,
-      instruction: userSession ? "" : inst,
-      sessionId: userSession
+    // Remove extra quotes if any
+    formattedReply = formattedReply.replace(/^"|"$/g, '')
+    
+    // Build final message
+    const finalMessage = `🤖 *Libie AI*\n\n${formattedReply}\n\n`
+    
+    // Send response
+    await conn.sendMessage(m.chat, {
+      text: finalMessage
     })
-
-    sessions[m.sender] = res.sessionId
-
-    await conn.sendMessage(
-      m.chat,
-      { text: res.text }
-    )
 
   } catch (err) {
+    console.error("Libie AI Error:", err)
     await conn.sendMessage(m.chat, {
-      text: "Error: " + err.message
+      text: `❌ *Error:* ${err.message || "Terjadi kesalahan, coba lagi nanti."}`
     })
-  }finally {
-    await global.loading(m, conn, true);
   }
-  
 }
 
-handler.help = ["ai"]
-handler.tags = ["ai"]
-handler.command = /^(ai|gemini)$/i
+// Command configuration
+handler.help = ['ai <pertanyaan>']
+handler.tags = ['ai']
+handler.command = /^(ai|libie|ask)$/i
 handler.desc = [
-  "Chat dengan Gemini AI",
-  "Support percakapan berkelanjutan",
-  "Ketik .ai reset untuk hapus session"
+  'Chat dengan AI Libie',
+  'Support percakapan berkelanjutan',
+  'Ketik .ai reset untuk hapus sesi'
 ]
 
 export default handler

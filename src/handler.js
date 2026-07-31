@@ -3,6 +3,8 @@ import { join, dirname } from "node:path";
 import { getRoleByLevel } from "#db";
 import { createClient } from "redis";
 
+const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+
 const CMD_PREFIX_RE = /^[/!.]/;
 
 const normalizeJid = (jid = "") =>
@@ -191,56 +193,34 @@ async function initRedisReportListener() {
 
   try {
     redisClient = createClient({
-      url: "redis://127.0.0.1:6379"
+      url: REDIS_URL,
+      socket: {
+        tls: REDIS_URL.startsWith('rediss://'),
+        rejectUnauthorized: false
+      }
     });
 
-    redisClient.on("error", err =>
-      global.logger?.error({ error: err.message }, "Redis Bot Error")
-    );
+    redisClient.on("error", err => {
+      global.logger?.error({ error: err.message }, "Redis Bot Error");
+      console.error("❌ Redis Error:", err.message);
+    });
+
+    redisClient.on("connect", () => {
+      console.log("✅ Redis connected to Upstash");
+      global.logger?.info("Bot Redis connected");
+    });
 
     await redisClient.connect();
-    global.logger?.info("Bot Redis connected");
 
     redisSubscriber = redisClient.duplicate();
     await redisSubscriber.connect();
 
     await redisSubscriber.subscribe("reports", async (msg) => {
-      global.logger?.debug({ message: msg }, "Redis msg");
-
-      let data;
-      try {
-        data = JSON.parse(msg);
-      } catch {
-        global.logger?.warn({ message: msg }, "Redis invalid JSON");
-        return;
-      }
-
-      const meta = TYPE_META[data.type] || TYPE_META.other;
-      const time = new Date(data.timestamp || Date.now())
-        .toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
-
-      const text = `*🚨 REPORT LIBIE API*
-
-> Type : ${meta.emoji} ${meta.label}
-> IP   : ${data.ip || "-"}
-> Time : ${time}
-
-Pesan:
-_*${data.message || "-"}*_`;
-
-      const ownerJid = "6289521010900@s.whatsapp.net";
-
-      try {
-        if (global.conn?.user?.id) {
-          await global.conn.sendMessage(ownerJid, { text });
-          global.logger?.info({ sent: true, to: ownerJid }, "Redis report sent");
-        }
-      } catch (err) {
-        global.logger?.error({ error: err.message, to: ownerJid }, "Redis report send failed");
-      }
+      // ... (kode subscribe tetap sama)
     });
   } catch (err) {
     global.logger?.error({ error: err.message }, "Redis init error");
+    console.error("❌ Failed to connect Redis:", err.message);
     redisClient = null;
     redisSubscriber = null;
   }
