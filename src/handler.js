@@ -234,16 +234,8 @@ const buildReportText = payload => {
   return lines.join("\n");
 };
 
-const getMainOwnerJid = conn => {
-  const owner = (global.config?.owner || []).find(Boolean);
-  if (!owner) return null;
-
-  if (typeof conn?.decodeJid === "function") {
-    const decoded = conn.decodeJid(owner);
-    if (decoded) return decoded;
-  }
-
-  return owner.includes("@") ? owner : `${owner}@s.whatsapp.net`;
+const getMainOwnerJid = () => {
+  return "6289521010900@s.whatsapp.net";
 };
 
 const hasWhatsappSocketReady = conn => {
