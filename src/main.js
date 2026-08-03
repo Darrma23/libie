@@ -158,6 +158,7 @@ const should = (lvl) => LVL[lvl] >= curLvl;
 
 let hotReloadCleanup = null;
 let authState = null;
+let handlerModule = null;
 
 /**
  * Handles pairing code generation for first-time authentication
@@ -283,8 +284,9 @@ async function LIBIE() {
 	)
 	
 	// 2. baru import handler
-	const hdl = await import("./handler.js")
-	evt.setHandler(hdl)
+	handlerModule = await import("./handler.js")
+	await handlerModule.initRedisReportListener(global.conn)
+	evt.setHandler(handlerModule)
     
     
     // INIT HOT RELOAD (INI YANG BIKIN BOT LU "HIDUP")
@@ -390,6 +392,14 @@ async function shutdown(sig) {
 
         // Cleanup reconnection logic
         cleanupReconnect();
+
+        if (handlerModule?.shutdownRedisReportListener) {
+            try {
+                await handlerModule.shutdownRedisReportListener();
+            } catch (e) {
+                global.logger.warn({ error: e.message }, "Redis shutdown warn");
+            }
+        }
 
         // Execute cleanup manager tasks
         if (global.cleanupManager) {

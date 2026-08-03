@@ -3,7 +3,7 @@ import { join, dirname } from "node:path";
 import { getRoleByLevel } from "#db";
 import { createClient } from "redis";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+const REDIS_URL = process.env.REDIS_URL;
 
 const CMD_PREFIX_RE = /^[/!.]/;
 
@@ -179,51 +179,209 @@ const resolveHelper = {
 /* ================= REDIS REPORT LISTENER ================= */
 
 const TYPE_META = {
-  error:   { emoji: "🔴", label: "Error Command" },
+  error: { emoji: "🔴", label: "Error Command" },
   request: { emoji: "🟢", label: "Request Fitur" },
   blocked: { emoji: "🟠", label: "Unblock Request" },
-  other:   { emoji: "🔵", label: "Laporan Lainnya" }
+  other: { emoji: "🔵", label: "Laporan Lainnya" },
 };
 
-let redisClient = null;
+const REPORT_CHANNEL = "reports";
+const REDIS_STATE_KEY = "__redisReportListener";
+
 let redisSubscriber = null;
 
-async function initRedisReportListener() {
-  if (redisClient) return;
+const truncateText = (text, maxLen = 450) => {
+  if (typeof text !== "string") return "";
+  const trimmed = text.replace(/\s+/g, " ").trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return `${trimmed.slice(0, maxLen - 1)}…`;
+};
+
+const formatReportPayload = payload => {
+  if (!payload || typeof payload !== "object") return null;
+
+  const rawType = String(payload.type || "other").toLowerCase();
+  const type = TYPE_META[rawType] ? rawType : "other";
+  const message = truncateText(payload.message || payload.text || "");
+  const ip = truncateText(payload.ip || payload.clientIp || "", 64);
+  const timestamp =
+    payload.timestamp ||
+    payload.createdAt ||
+    payload.time ||
+    payload.date ||
+    new Date().toISOString();
+
+  if (!message && !ip && !timestamp) {
+    return null;
+  }
+
+  return {
+    type,
+    message,
+    ip,
+    timestamp,
+  };
+};
+
+const buildReportText = payload => {
+  const meta = TYPE_META[payload?.type] || TYPE_META.other;
+  const lines = [`${meta.emoji} *${meta.label}*`];
+
+  if (payload.message) lines.push(`Pesan: ${payload.message}`);
+  if (payload.ip) lines.push(`IP: ${payload.ip}`);
+  if (payload.timestamp) lines.push(`Waktu: ${new Date(payload.timestamp).toLocaleString() || payload.timestamp}`);
+
+  return lines.join("\n");
+};
+
+const getMainOwnerJid = conn => {
+  const owner = (global.config?.owner || []).find(Boolean);
+  if (!owner) return null;
+
+  if (typeof conn?.decodeJid === "function") {
+    const decoded = conn.decodeJid(owner);
+    if (decoded) return decoded;
+  }
+
+  return owner.includes("@") ? owner : `${owner}@s.whatsapp.net`;
+};
+
+const hasWhatsappSocketReady = conn => {
+  if (!conn || typeof conn.sendMessage !== "function") return false;
+  if (conn.ws?.readyState === 1) return true;
+  return !!(conn.user?.jid || conn.user?.lid);
+};
+
+async function deliverReportToOwner(conn, payload) {
+  if (!hasWhatsappSocketReady(conn)) {
+    global.logger?.warn(
+      { type: payload?.type },
+      "Redis report skipped: WhatsApp connection not ready"
+    );
+    return;
+  }
+
+  const ownerJid = getMainOwnerJid(conn);
+  if (!ownerJid) {
+    global.logger?.warn(
+      { type: payload?.type },
+      "Redis report skipped: missing owner configuration"
+    );
+    return;
+  }
 
   try {
-    redisClient = createClient({
-      url: REDIS_URL,
-      socket: {
-        tls: REDIS_URL.startsWith('rediss://'),
-        rejectUnauthorized: false
-      }
-    });
-
-    redisClient.on("error", err => {
-      global.logger?.error({ error: err.message }, "Redis Bot Error");
-      console.error("❌ Redis Error:", err.message);
-    });
-
-    redisClient.on("connect", () => {
-      console.log("✅ Redis connected to Upstash");
-      global.logger?.info("Bot Redis connected");
-    });
-
-    await redisClient.connect();
-
-    redisSubscriber = redisClient.duplicate();
-    await redisSubscriber.connect();
-
-    await redisSubscriber.subscribe("reports", async (msg) => {
-      // ... (kode subscribe tetap sama)
+    await conn.sendMessage(ownerJid, {
+      text: buildReportText(payload),
     });
   } catch (err) {
-    global.logger?.error({ error: err.message }, "Redis init error");
-    console.error("❌ Failed to connect Redis:", err.message);
-    redisClient = null;
-    redisSubscriber = null;
+    global.logger?.error(
+      { error: err?.message, ownerJid, type: payload?.type },
+      "Redis report delivery failed"
+    );
   }
+}
+
+export async function initRedisReportListener(connection = global.conn) {
+  const state = globalThis[REDIS_STATE_KEY] || (globalThis[REDIS_STATE_KEY] = {});
+
+  if (state.initialized || state.connecting) {
+    return state.subscriber || null;
+  }
+
+  if (!REDIS_URL) {
+    global.logger?.warn("Redis report listener disabled: REDIS_URL not configured");
+    state.initialized = true;
+    state.disabled = true;
+    return null;
+  }
+
+  if (!connection || typeof connection.sendMessage !== "function") {
+    global.logger?.warn(
+      "Redis report listener started without an active Baileys connection; delivery will be deferred until the main socket is ready"
+    );
+  }
+
+  state.connecting = true;
+
+  try {
+    redisSubscriber = createClient({
+      url: REDIS_URL,
+      socket: {
+        tls: REDIS_URL.startsWith("rediss://"),
+        rejectUnauthorized: false,
+      },
+    });
+
+    redisSubscriber.on("error", err => {
+      global.logger?.error({ error: err?.message }, "Redis report subscriber error");
+    });
+
+    redisSubscriber.on("connect", () => {
+      global.logger?.info("Redis report subscriber connected");
+    });
+
+    await redisSubscriber.connect();
+
+    await redisSubscriber.subscribe(REPORT_CHANNEL, async msg => {
+      let parsedPayload;
+
+      try {
+        parsedPayload = JSON.parse(msg);
+      } catch (err) {
+        global.logger?.warn(
+          { error: err?.message, raw: String(msg || "").slice(0, 160) },
+          "Invalid Redis report payload"
+        );
+        return;
+      }
+
+      const payload = formatReportPayload(parsedPayload);
+      if (!payload) {
+        global.logger?.warn(
+          { raw: String(msg || "").slice(0, 160) },
+          "Malformed Redis report payload rejected"
+        );
+        return;
+      }
+
+      await deliverReportToOwner(global.conn || connection, payload);
+    });
+
+    state.subscriber = redisSubscriber;
+    state.initialized = true;
+    state.disabled = false;
+    state.connecting = false;
+
+    global.logger?.info({ channel: REPORT_CHANNEL }, "Redis report subscriber active");
+    return redisSubscriber;
+  } catch (err) {
+    global.logger?.error({ error: err?.message }, "Redis report listener init failed");
+    state.initialized = false;
+    state.disabled = false;
+    state.connecting = false;
+    redisSubscriber = null;
+    state.subscriber = null;
+    return null;
+  }
+}
+
+export async function shutdownRedisReportListener() {
+  const state = globalThis[REDIS_STATE_KEY];
+  if (!state?.subscriber) return;
+
+  try {
+    await state.subscriber.unsubscribe(REPORT_CHANNEL);
+    await state.subscriber.quit();
+  } catch (err) {
+    global.logger?.warn({ error: err?.message }, "Redis report subscriber shutdown warning");
+  }
+
+  state.subscriber = null;
+  state.initialized = false;
+  state.connecting = false;
+  state.disabled = false;
+  redisSubscriber = null;
 }
 
 export async function handler(chatUpdate) {
