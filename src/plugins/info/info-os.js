@@ -54,6 +54,9 @@ import {
 } from "#lib/system.js";
 
 let handler = async (m, { conn }) => {
+   
+   await global.loading(m, conn);
+   
     const startTime = Date.now();
     const [
         osInfo,
@@ -341,6 +344,7 @@ System Status: ${warnings.length === 0 ? "✓ HEALTHY" : "✘ ATTENTION REQUIRED
         },
         { quoted: m }
     );
+   await global.loading(m, conn, true);
 };
 
 /**

@@ -133,7 +133,7 @@ let handler = async (m, { conn, text, args, usedPrefix, command }) => {
 
             const pp =
                 (await conn.profilePictureUrl(jid, "image").catch(() => null)) ||
-                "https://qu.ax/jVZhH.jpg";
+                "https://files.catbox.moe/1w2u1u.jpg";
 
             const stsRes = await conn.fetchStatus(jid).catch(() => null);
             const sts = stsRes?.[0]?.status;
