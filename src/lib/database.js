@@ -42,6 +42,7 @@ const SCHEMAS = {
             money: "INTEGER DEFAULT 0",
             bank: "INTEGER DEFAULT 0",
             user_limit: "INTEGER DEFAULT 100",
+            chat_count: "INTEGER DEFAULT 0",
             cupon: "INTEGER DEFAULT 0",
             tiketcoin: "INTEGER DEFAULT 0",
 

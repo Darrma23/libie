@@ -441,6 +441,20 @@ export async function handler(chatUpdate) {
 			}
 		}
 
+      // Auto-counter total chat (tambahkan di dalam handler.js)
+      if (m.isGroup && m.sender) {
+          try {
+              let user = global.rpg?.data?.user?.[m.sender];
+              if (user) {
+                  // Increment chat_count
+                  user.chat_count = (user.chat_count || 0) + 1;
+              }
+          } catch (e) {
+              // Silent error, jangan ganggu proses utama
+              // console.error('Error counting chat:', e.message);
+          }
+      }
+
 		const settings =
 			global.db?.data?.settings?.[this.user.lid] || {};
 
