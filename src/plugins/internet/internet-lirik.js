@@ -1,3 +1,6 @@
+// src/plugins/lyrics.js
+import axios from 'axios'
+
 const handler = async (m, { conn, text }) => {
   try {
     if (!text) {
@@ -7,152 +10,101 @@ const handler = async (m, { conn, text }) => {
     }
 
     await conn.sendPresenceUpdate("composing", m.chat);
+    await global.loading(m, conn);
 
-    // Cari lagu dari Genius
-    const searchUrl = `https://genius.com/api/search/multi?q=${encodeURIComponent(text)}`;
-    const searchRes = await fetch(searchUrl, {
+    const query = encodeURIComponent(text);
+    const url = `https://www.keyrafara.com/search/lyrics?q=${query}`;
+    
+    console.log(`📤 Request to: ${url}`);
+    
+    const response = await axios.get(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36'
       },
+      timeout: 15000
     });
 
-    if (!searchRes.ok) throw new Error(`HTTP ${searchRes.status}`);
+    const data = response.data;
 
-    const searchJson = await searchRes.json();
-    const sections = searchJson?.response?.sections || [];
-    let selectedSong = null;
-
-    // Cari lagu pertama yang ditemukan
-    for (const section of sections) {
-      const hits = section.hits || [];
-      for (const hit of hits) {
-        const result = hit.result || {};
-        const hitType = hit.type;
-        const _type = result._type;
-
-        if (hitType === "song" || _type === "song") {
-          selectedSong = {
-            title: result.title || "Unknown",
-            artist: result.artist_names || "Unknown",
-            path: result.path || "",
-            image: result.header_image_url || "",
-            release_date: result.release_date_for_display || "N/A",
-          };
-          break;
-        }
-      }
-      if (selectedSong) break;
-    }
-
-    if (!selectedSong) {
+    if (!data.status || !data.result) {
       return m.reply("❌ Lagu tidak ditemukan.");
     }
 
-    // Ambil lirik dari lagu yang dipilih
-    const lyricsUrl = selectedSong.path.startsWith("/")
-      ? `https://genius.com${selectedSong.path}`
-      : selectedSong.path;
-
-    const lyricsRes = await fetch(lyricsUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-    });
-
-    if (!lyricsRes.ok) throw new Error(`HTTP ${lyricsRes.status}`);
-
-    const html = await lyricsRes.text();
-
-    // Parse lyrics dengan lebih bersih
-    const lyricsMatch = html.match(/<div[^>]*data-lyrics-container="true"[^>]*>(.*?)<\/div>/gs);
-    let lyrics = "";
-
-    if (lyricsMatch) {
-      for (const match of lyricsMatch) {
-        let clean = match
-          .replace(/<[^>]*>/g, "\n")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/&#x27;/g, "'")
-          .replace(/&#39;/g, "'")
-          .replace(/\n{3,}/g, "\n\n");
-        
-        // Hapus baris yang tidak perlu
-        const lines = clean.split("\n").filter(line => {
-          const trimmed = line.trim();
-          return !/^(\\d+\s*(Contributors|contributors)|Translations|Dansk|Español|Português|Français|Ελληνικά|Cymraeg|Italiano|Deutsch|Русский|Українська|Select|Language| languages?|translations?)/i.test(trimmed) &&
-                 trimmed.length > 0;
-        });
-        
-        clean = lines.join("\n");
-        lyrics += clean.trim() + "\n\n";
-      }
-      lyrics = lyrics.trim();
-    }
-
+    const result = data.result;
+    
+    let lyrics = result.lyrics?.plain_lyrics || result.lyrics?.synced_lyrics || '';
+    
     if (!lyrics) {
       return m.reply("❌ Gagal mengambil lirik untuk lagu ini.");
     }
 
-    // Truncate if too long
-    if (lyrics.length > 4000) {
-      lyrics = lyrics.slice(0, 4000) + "\n\n[Lirik dipotong...]";
-    }
+    // Bersihkan timestamp
+    lyrics = lyrics
+      .replace(/\[.*?\]/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
 
-    // Buat pesan tanpa link cover
+    // Header
     const message = [
-      `🎵 *${selectedSong.title}*`,
-      `👤 *Artist:* ${selectedSong.artist}`,
-      `📅 *Release:* ${selectedSong.release_date}`,
-      "",
+      `🎵 *${result.title}*`,
+      `👤 *Artist:* ${result.artist}`,
+      `💿 *Album:* ${result.lyrics?.album_name || 'N/A'}`,
+      `⏱️ *Duration:* ${formatDuration(result.lyrics?.duration || 0)}`,
+      ``,
       `📝 *Lirik:*`,
-      "",
+      ``,
       lyrics,
-    ].join("\n");
+    ].join('\n');
 
-    // Kirim gambar cover jika tersedia
-    if (selectedSong.image) {
+    // ===== DOWNLOAD THUMBNAIL =====
+    let thumbnailBuffer = null;
+    if (result.thumbnail) {
       try {
-        // Download image
-        const imageRes = await fetch(selectedSong.image);
+        const imageRes = await fetch(result.thumbnail, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36'
+          }
+        });
         if (imageRes.ok) {
-          const imageBuffer = await imageRes.arrayBuffer();
-          const buffer = Buffer.from(imageBuffer);
-          
-          // Kirim gambar dengan caption
-          await conn.sendMessage(m.chat, {
-            image: buffer,
-            caption: message,
-            contextInfo: {
-              forwardingScore: 999,
-              isForwarded: false,
-              externalAdReply: {
-                title: selectedSong.title,
-                body: selectedSong.artist,
-                mediaType: 1,
-                thumbnail: buffer,
-                sourceUrl: ""
-              }
-            }
-          }, { quoted: m });
-          return;
+          const arrayBuffer = await imageRes.arrayBuffer();
+          thumbnailBuffer = Buffer.from(arrayBuffer);
+          console.log(`✅ Thumbnail downloaded: ${thumbnailBuffer.length} bytes`);
         }
       } catch (e) {
-        console.error("Error sending image:", e);
-        // Jika gagal kirim gambar, kirim teks saja
+        console.error('❌ Gagal download thumbnail:', e.message);
       }
     }
 
-    // Kirim teks saja jika gambar gagal
-    await conn.sendMessage(m.chat, { text: message }, { quoted: m });
+    // ===== KIRIM PESAN DENGAN THUMBNAIL =====
+    const messageOptions = {
+      text: message,
+      contextInfo: {
+        externalAdReply: {
+          title: result.title,
+          body: result.artist,
+          mediaType: 1,
+          thumbnail: thumbnailBuffer, // Kirim buffer, bukan URL
+          sourceUrl: result.spotify_url || 'https://spotify.com'
+        }
+      }
+    };
+
+    await conn.sendMessage(m.chat, messageOptions, { quoted: m });
     
   } catch (e) {
-    console.error("Lyrics error:", e);
-    m.reply("❌ Gagal mengambil lirik. Coba lagi nanti.");
+    console.error("Lyrics error:", e.message);
+    m.reply(`❌ Gagal mengambil lirik: ${e.message}`);
+  } finally {
+    await global.loading(m, conn, true);
   }
 };
+
+function formatDuration(seconds) {
+  if (!seconds || seconds < 0) return 'N/A';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 handler.help = ["lyrics"];
 handler.tags = ["internet"];

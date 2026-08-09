@@ -88,12 +88,14 @@ export async function createTransaction(orderId, amount, method = "qris") {
 }
 
 /**
- * Mengecek status transaksi
+ * ✅ FIX: Mengecek status transaksi - WAJIB SERTAKAN AMOUNT
+ * API Pakasir membutuhkan amount untuk validasi
  */
 export async function checkTransaction(orderId, amount) {
+  // ✅ WAJIB sertakan amount
   const query = new URLSearchParams({
     project: project,
-    amount: String(amount),
+    amount: String(amount),  // ← WAJIB ADA!
     order_id: orderId,
     api_key: apiKey
   });

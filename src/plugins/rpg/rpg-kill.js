@@ -18,7 +18,7 @@ let handler = async (m, { conn, args, usedPrefix }) => {
   let cooldown = 7200000
   let time = u.lastwarpet + cooldown
   if (Date.now() - u.lastwarpet < cooldown) {
-    throw `Kamu baru saja bertarung.\nSiap lagi dalam ${msToTime(time - Date.now())}`
+    return conn.reply(m.chat, `Kamu baru saja bertarung.\nSiap lagi dalam ${msToTime(time - Date.now())}`, m)
   }
 
   // ===== SYARAT =====

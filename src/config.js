@@ -2,9 +2,9 @@
  * @file Configuration and database initialization module
  * @module config
  * @description Core configuration manager, database setup, and utility functions
- * for Liora bot with SQLite persistence and environment-based configuration.
+ * for Libie bot with SQLite persistence and environment-based configuration.
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 import { join } from "node:path";

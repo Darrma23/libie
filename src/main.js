@@ -69,6 +69,7 @@ let isDown = false;
  */
 const logger = () => {
     const LVL = {
+        silent: 70,
         fatal: 60,
         error: 50,
         warn: 40,
@@ -77,8 +78,8 @@ const logger = () => {
         trace: 10,
     };
 
-    // Determine current log level from environment
-const curLvl = LVL[Bun.env.BAILEYS_LOG_LEVEL?.toLowerCase() || "info"];
+    // Determine current log level from environment (fallback ke "info" kalau nilainya gak dikenal)
+const curLvl = LVL[Bun.env.BAILEYS_LOG_LEVEL?.toLowerCase()] ?? LVL.info;
 const should = (lvl) => LVL[lvl] >= curLvl;
 
     /**
@@ -175,7 +176,10 @@ let handlerModule = null;
  */
 async function pair(conn) {
     return new Promise((res) => {
-        const t = setTimeout(res, 3000);
+        const t = setTimeout(() => {
+            clearInterval(chk);
+            res();
+        }, 3000);
 
         const chk = setInterval(() => {
             if (conn.user || conn.ws?.readyState === 1) {
@@ -188,6 +192,10 @@ async function pair(conn) {
         try {
             let code = await conn.requestPairingCode(pairNum, pairCode);
             code = code?.match(/.{1,4}/g)?.join("-") || code;
+            // console.log langsung, jangan lewat global.logger — kalau BAILEYS_LOG_LEVEL
+            // di-set ke level yang lebih tinggi dari info (atau "silent"), pairing code
+            // wajib tetap muncul karena tanpa ini bot gak bisa dipakai sama sekali.
+            console.log(`\n[PAIRING CODE] ${code}\n`);
             global.logger.info(`Pair code: ${code}`);
         } catch (e) {
             global.logger.error({ error: e.message }, "Pair error");
@@ -253,8 +261,13 @@ async function LIBIE() {
   global.conn.isInit = false;
   
     // Handle pairing for new sessions
-    if (!state.creds.registered && pairNum) {
-        await pair(global.conn);
+    if (!state.creds.registered) {
+        if (pairNum) {
+            await pair(global.conn);
+        } else {
+            console.log("\n[PAIRING] PAIRING_NUMBER belum di-set di .env — bot gak bisa login.\n");
+            global.logger.error("Session belum registered dan PAIRING_NUMBER kosong. Set PAIRING_NUMBER di .env lalu restart.");
+        }
     }
 
     // Initialize managers

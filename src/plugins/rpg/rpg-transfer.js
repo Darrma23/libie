@@ -8,7 +8,7 @@ let handler = async (m, { conn, args, usedPrefix, isOwner }) => {
   }
 
   const type = (args[0] || '').toLowerCase()
-  const count = Math.max(parseInt(args[1]), 1)
+  const count = Math.max(parseInt(args[1]) || 1, 1)
 
   if (!m.mentionedJid || !m.mentionedJid[0]) {
     return m.reply('Tag salah satu user.')

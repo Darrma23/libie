@@ -48,7 +48,7 @@ let handler = async (m, { conn }) => {
 handler.help = ['hadiah']
 handler.tags = ['rpg']
 handler.command = /^(hadiah)$/i
-handler.user_limit = true
+handler.limit = true
 
 export default handler
 

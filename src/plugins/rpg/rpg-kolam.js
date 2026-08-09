@@ -22,13 +22,13 @@ let handler = async (m, { conn }) => {
   // Label level pancingan
   let levelLabel = 'Tidak Punya'
   if (pancingan > 0 && pancingan < 5) levelLabel = `Level ${pancingan}`
-  if (pancingan === 5) levelLabel = 'Level MAX'
+  if (pancingan >= 5) levelLabel = 'Level MAX'
 
   // Progress pancingan
   let progress = 'Tidak punya pancingan'
   if (pancingan > 0 && pancingan < 5) {
     progress = `Level *${pancingan}* ➜ Level *${pancingan + 1}*\n│Exp *${anakpancingan}* ➜ *${pancingan * 10000}*`
-  } else if (pancingan === 5) {
+  } else if (pancingan >= 5) {
     progress = '*Max Level*'
   }
 

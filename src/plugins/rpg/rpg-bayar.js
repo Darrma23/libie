@@ -40,7 +40,7 @@ let handler = async (m, { conn, usedPrefix, command, args }) => {
           `Contoh: ${usedPrefix + command} cek ORD_xxx`
         );
       }
-      return await checkOrder(m, orderId);
+      return await checkOrder(m, orderId, usedPrefix, command);
     }
     
     // ============================================
@@ -160,29 +160,37 @@ let handler = async (m, { conn, usedPrefix, command, args }) => {
     console.log('✅ Payment created:', payment.id);
     console.log('✅ QR String length:', payment.qr_string.length);
     
-    // Simpan ke database orders
-    const orderData = {
-      id: orderId,
-      user_id: jid,
-      item: subCommand === 'limit' ? `limit` : subCommand,
-      quantity: subCommand === 'limit' ? parseInt(duration) : 1,
-      total_price: totalPrice,
-      status: 'pending',
-      payment_id: payment.id || orderId,
-      target_id: jid,
-      metadata: JSON.stringify({
-        type: subCommand,
-        duration: parseInt(duration),
-        limit_amount: subCommand === 'limit' ? parseInt(duration) : undefined,
-        expired_at: subCommand !== 'limit' ? Math.floor(Date.now() / 1000) + (parseInt(duration) * 86400) : undefined,
-        created_at: Date.now(),
-        qr_string: payment.qr_string
-      }),
-      created_at: Math.floor(Date.now() / 1000),
-      updated_at: Math.floor(Date.now() / 1000)
-    };
-    
-    global.rpg.data.orders[orderId] = orderData;
+    // ✅ SIMPAN KE SQLITE (bukan global.rpg.data)
+    const metadata = JSON.stringify({
+      type: subCommand,
+      duration: parseInt(duration),
+      limit_amount: subCommand === 'limit' ? parseInt(duration) : undefined,
+      expired_at: subCommand !== 'limit' ? Math.floor(Date.now() / 1000) + (parseInt(duration) * 86400) : undefined,
+      created_at: Date.now(),
+      qr_string: payment.qr_string
+    });
+
+    global.sqlite
+      .prepare(`
+        INSERT INTO orders (
+          id, user_id, item, quantity, total_price, 
+          status, payment_id, target_id, metadata, 
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        orderId,
+        jid,
+        subCommand === 'limit' ? 'limit' : subCommand,
+        subCommand === 'limit' ? parseInt(duration) : 1,
+        totalPrice,
+        'pending',
+        payment.id || orderId,
+        jid,
+        metadata,
+        Math.floor(Date.now() / 1000),
+        Math.floor(Date.now() / 1000)
+      );
     
     // Generate QR
     const qrBuffer = await generateQR(payment.qr_string);
@@ -241,120 +249,94 @@ let handler = async (m, { conn, usedPrefix, command, args }) => {
     // ============================================
     console.log(`🔄 Auto check started for ${orderId}`);
     
+    let isProcessing = false;
+    
     const checkInterval = setInterval(async () => {
+      if (isProcessing) return;
+      isProcessing = true;
+
       try {
         const tx = activeTransactions.get(orderId);
         if (!tx || tx.status !== 'pending') {
           clearInterval(checkInterval);
+          isProcessing = false;
           return;
         }
-        
+
         console.log(`🔍 Checking ${orderId}...`);
-        
-        // Cek status ke Pakasir
+
+        // ✅ FIX: Sertakan amount
         const transaction = await checkTransaction(orderId, totalPrice);
-        console.log(`📊 Status ${orderId}: ${transaction.status}`);
-        
-        if (transaction.status === 'PAID' || transaction.status === 'paid') {
+        const status = transaction.status?.toLowerCase();
+        console.log(`📊 Status ${orderId}: ${status}`);
+
+        // ✅ STATUS SUKSES
+        if (status === 'paid') {
           console.log(`✅ ${orderId} PAID! Processing...`);
-          
-          // Proses pembayaran sukses
+
           await processSuccessPayment(orderId);
-          
-          // Update cache
+
           tx.status = 'paid';
           clearInterval(checkInterval);
-          
-          // === HAPUS PESAN QR ===
-          try {
-            if (tx.qr_message_id && tx.qr_message_chat) {
-              await conn.sendMessage(tx.qr_message_chat, {
-                delete: {
-                  remoteJid: tx.qr_message_chat,
-                  fromMe: true,
-                  id: tx.qr_message_id
-                }
-              });
-              console.log(`🗑️ QR message deleted: ${tx.qr_message_id}`);
-            }
-          } catch (e) {
-            console.error('❌ Gagal hapus QR:', e.message);
-          }
-          
-          // === KIRIM NOTIFIKASI SUKSES ===
-          const successMsg = 
-            `✅ *Pembayaran Berhasil!*\n\n` +
-            `📦 ${itemDisplay}\n` +
-            `💰 ${formatRupiah(totalPrice)}\n\n` +
-            `${subCommand === 'limit' ? '📊 Limit berhasil ditambahkan!' : ''}\n` +
-            `${subCommand === 'rent' ? '🏠 Rent Group berhasil diaktifkan!' : ''}\n` +
-            `${subCommand === 'jadibot' ? '🤖 Jadibot berhasil diaktifkan!' : ''}`;
-          
-          await conn.sendMessage(m.chat, { text: successMsg }, { quoted: m });
-          
-          // === NOTIFIKASI KE OWNER ===
-          const owner = global.config?.owner || '';
-          if (owner) {
-            try {
-              await conn.sendMessage(owner, {
-                text: `✅ *Payment Success!*\n\n` +
-                      `🆔 Order: ${orderId}\n` +
-                      `👤 User: ${jid}\n` +
-                      `📦 Item: ${itemDisplay}\n` +
-                      `💰 Amount: ${formatRupiah(totalPrice)}`
-              });
-            } catch (e) {
-              console.error('❌ Gagal kirim notif owner:', e.message);
-            }
-          }
-          
-          // Hapus dari cache
-          setTimeout(() => {
-            activeTransactions.delete(orderId);
-          }, 5000);
+
+          await deleteQRMessage(conn, tx);
+          await sendSuccessNotification(conn, m, orderId, subCommand, duration, totalPrice);
+
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+          isProcessing = false;
+          return;
         }
-      } catch (e) {
-        console.error(`❌ Auto check error ${orderId}:`, e.message);
-      }
-    }, 5000);
-    
-    // Auto cancel setelah 3 menit
-    setTimeout(async () => {
-      try {
-        const tx = activeTransactions.get(orderId);
-        if (tx && tx.status === 'pending') {
-          console.log(`⏰ Cancelling ${orderId} (expired)`);
-          
-          // Cancel di Pakasir
-          await cancelTransaction(orderId, totalPrice);
-          
-          // Update status di database
-          const order = global.rpg.data.orders[orderId];
+
+        // ❌ STATUS CANCELED - FIXED: Pakai SQLite
+        if (status === 'canceled' || status === 'cancelled') {
+          console.log(`❌ ${orderId} CANCELED!`);
+
+          const order = global.sqlite
+            .prepare(`SELECT * FROM orders WHERE id = ?`)
+            .get(orderId);
+
           if (order) {
-            order.status = 'expired';
-            order.updated_at = Math.floor(Date.now() / 1000);
+            global.sqlite
+              .prepare(`UPDATE orders SET status = 'canceled', updated_at = unixepoch() WHERE id = ?`)
+              .run(orderId);
           }
-          
-          // Update cache
+
+          tx.status = 'canceled';
+          clearInterval(checkInterval);
+
+          await deleteQRMessage(conn, tx);
+
+          await conn.sendMessage(m.chat, {
+            text: `❌ *Pembayaran Dibatalkan!*\n\n` +
+                  `🆔 Order: ${orderId}\n` +
+                  `💳 ${formatRupiah(totalPrice)}\n\n` +
+                  `Transaksi dibatalkan oleh sistem. Silahkan buat transaksi baru dengan ${usedPrefix + command}`
+          }, { quoted: m });
+
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+          isProcessing = false;
+          return;
+        }
+
+        // ⏰ STATUS EXPIRED - FIXED: Pakai SQLite
+        if (status === 'expired') {
+          console.log(`⏰ ${orderId} EXPIRED!`);
+
+          const order = global.sqlite
+            .prepare(`SELECT * FROM orders WHERE id = ?`)
+            .get(orderId);
+
+          if (order) {
+            global.sqlite
+              .prepare(`UPDATE orders SET status = 'expired', updated_at = unixepoch() WHERE id = ?`)
+              .run(orderId);
+          }
+
           tx.status = 'expired';
-          
-          // === HAPUS PESAN QR ===
-          try {
-            if (tx.qr_message_id && tx.qr_message_chat) {
-              await conn.sendMessage(tx.qr_message_chat, {
-                delete: {
-                  remoteJid: tx.qr_message_chat,
-                  fromMe: true,
-                  id: tx.qr_message_id
-                }
-              });
-              console.log(`🗑️ QR message deleted (expired): ${tx.qr_message_id}`);
-            }
-          } catch (e) {
-            console.error('❌ Gagal hapus QR expired:', e.message);
-          }
-          
-          // Kirim notifikasi expired
+          clearInterval(checkInterval);
+
+          await deleteQRMessage(conn, tx);
+
           await conn.sendMessage(m.chat, {
             text: `⏰ *Transaksi Kadaluarsa!*\n\n` +
                   `🆔 Order: ${orderId}\n` +
@@ -362,12 +344,87 @@ let handler = async (m, { conn, usedPrefix, command, args }) => {
                   `Transaksi dibatalkan karena tidak dibayar dalam 3 menit.\n` +
                   `Silahkan buat transaksi baru dengan ${usedPrefix + command}`
           }, { quoted: m });
-          
-          // Hapus dari cache
+
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+          isProcessing = false;
+          return;
+        }
+
+        // ❌ STATUS FAILED - FIXED: Pakai SQLite
+        if (status === 'failed') {
+          console.log(`❌ ${orderId} FAILED!`);
+
+          const order = global.sqlite
+            .prepare(`SELECT * FROM orders WHERE id = ?`)
+            .get(orderId);
+
+          if (order) {
+            global.sqlite
+              .prepare(`UPDATE orders SET status = 'failed', updated_at = unixepoch() WHERE id = ?`)
+              .run(orderId);
+          }
+
+          tx.status = 'failed';
+          clearInterval(checkInterval);
+
+          await deleteQRMessage(conn, tx);
+
+          await conn.sendMessage(m.chat, {
+            text: `❌ *Pembayaran Gagal!*\n\n` +
+                  `🆔 Order: ${orderId}\n` +
+                  `💳 ${formatRupiah(totalPrice)}\n\n` +
+                  `Terjadi kesalahan pada pembayaran. Silahkan coba lagi.`
+          }, { quoted: m });
+
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+          isProcessing = false;
+          return;
+        }
+
+        console.log(`⏳ ${orderId} masih pending...`);
+
+      } catch (e) {
+        console.error(`❌ Auto check error ${orderId}:`, e.message);
+      } finally {
+        isProcessing = false;
+      }
+    }, 5000);
+    
+    // Auto cancel setelah 3 menit - FIXED: Pakai SQLite
+    setTimeout(async () => {
+      try {
+        const tx = activeTransactions.get(orderId);
+        if (tx && tx.status === 'pending') {
+          console.log(`⏰ Auto-cancelling ${orderId} (timeout)`);
+
+          await cancelTransaction(orderId, totalPrice);
+
+          const order = global.sqlite
+            .prepare(`SELECT * FROM orders WHERE id = ?`)
+            .get(orderId);
+
+          if (order) {
+            global.sqlite
+              .prepare(`UPDATE orders SET status = 'expired', updated_at = unixepoch() WHERE id = ?`)
+              .run(orderId);
+          }
+
+          tx.status = 'expired';
+
+          await deleteQRMessage(conn, tx);
+
+          await conn.sendMessage(m.chat, {
+            text: `⏰ *Transaksi Kadaluarsa!*\n\n` +
+                  `🆔 Order: ${orderId}\n` +
+                  `💳 ${formatRupiah(totalPrice)}\n\n` +
+                  `Transaksi dibatalkan karena tidak dibayar dalam 3 menit.\n` +
+                  `Silahkan buat transaksi baru dengan ${usedPrefix + command}`
+          }, { quoted: m });
+
           setTimeout(() => {
             activeTransactions.delete(orderId);
           }, 5000);
-          
+
           clearInterval(checkInterval);
         }
       } catch (e) {
@@ -427,6 +484,106 @@ async function waitForConfirmation(m, conn) {
 }
 
 // ============================================
+// FUNGSI: HAPUS PESAN QR (FIXED - 3 Methods)
+// ============================================
+async function deleteQRMessage(conn, tx) {
+  try {
+    if (!tx?.qr_message_id || !tx?.qr_message_chat) {
+      console.log('⚠️ Tidak ada QR message untuk dihapus');
+      return;
+    }
+
+    console.log(`🗑️ Menghapus QR message: ${tx.qr_message_id} di chat ${tx.qr_message_chat}`);
+
+    // Method 1: Pakai delete message (WA Web)
+    try {
+      await conn.sendMessage(tx.qr_message_chat, {
+        delete: {
+          remoteJid: tx.qr_message_chat,
+          fromMe: true,
+          id: tx.qr_message_id
+        }
+      });
+      console.log(`✅ QR message deleted (Method 1): ${tx.qr_message_id}`);
+      return;
+    } catch (e) {
+      console.log(`⚠️ Method 1 gagal: ${e.message}`);
+    }
+
+    // Method 2: Kirim pesan baru dan hapus (fallback)
+    try {
+      // Kirim notifikasi
+      await conn.sendMessage(tx.qr_message_chat, {
+        text: '⏰ *Transaksi telah selesai* - QR Code otomatis dihapus'
+      });
+      
+      // Coba hapus pesan lama dengan protokol
+      await conn.sendMessage(tx.qr_message_chat, {
+        delete: {
+          remoteJid: tx.qr_message_chat,
+          fromMe: true,
+          id: tx.qr_message_id
+        }
+      });
+      console.log(`✅ QR message deleted (Method 2): ${tx.qr_message_id}`);
+    } catch (e) {
+      console.log(`⚠️ Method 2 gagal: ${e.message}`);
+    }
+
+    // Method 3: Edit pesan jadi expired (paling aman)
+    try {
+      await conn.sendMessage(tx.qr_message_chat, {
+        text: `⏰ *Transaksi Kadaluarsa*\n\nQR Code telah dihapus otomatis.`
+      }, {
+        edit: tx.qr_message_id
+      });
+      console.log(`✅ QR message edited (Method 3): ${tx.qr_message_id}`);
+    } catch (e) {
+      console.log(`⚠️ Method 3 gagal: ${e.message}`);
+    }
+
+  } catch (e) {
+    console.error('❌ Gagal hapus QR:', e.message);
+  }
+}
+
+// ============================================
+// FUNGSI: KIRIM NOTIFIKASI SUKSES
+// ============================================
+async function sendSuccessNotification(conn, m, orderId, subCommand, duration, totalPrice) {
+  const itemDisplay = 
+    subCommand === 'limit' ? `Limit ${duration}` :
+    subCommand === 'rent' ? `Rent Group ${duration} Hari` :
+    `Jadibot ${duration} Hari`;
+  
+  const successMsg = 
+    `✅ *Pembayaran Berhasil!*\n\n` +
+    `📦 ${itemDisplay}\n` +
+    `💰 ${formatRupiah(totalPrice)}\n\n` +
+    `${subCommand === 'limit' ? '📊 Limit berhasil ditambahkan!' : ''}\n` +
+    `${subCommand === 'rent' ? '🏠 Rent Group berhasil diaktifkan!' : ''}\n` +
+    `${subCommand === 'jadibot' ? '🤖 Jadibot berhasil diaktifkan!' : ''}`;
+  
+  await conn.sendMessage(m.chat, { text: successMsg }, { quoted: m });
+  
+  // Notifikasi ke owner
+  const owner = global.config?.owner || '';
+  if (owner) {
+    try {
+      await conn.sendMessage(owner, {
+        text: `✅ *Payment Success!*\n\n` +
+              `🆔 Order: ${orderId}\n` +
+              `👤 User: ${m.sender}\n` +
+              `📦 Item: ${itemDisplay}\n` +
+              `💰 Amount: ${formatRupiah(totalPrice)}`
+      });
+    } catch (e) {
+      console.error('❌ Gagal kirim notif owner:', e.message);
+    }
+  }
+}
+
+// ============================================
 // FUNGSI: PROCESS SUCCESS PAYMENT
 // ============================================
 async function processSuccessPayment(orderId) {
@@ -435,6 +592,9 @@ async function processSuccessPayment(orderId) {
     .get(orderId);
   
   if (!order) throw new Error('Order tidak ditemukan');
+  
+  // Cegah reward diberikan dua kali
+  if (order.status === 'paid') return { success: true, alreadyProcessed: true };
   
   const metadata = JSON.parse(order.metadata || '{}');
   
@@ -515,9 +675,9 @@ async function processSuccessPayment(orderId) {
 }
 
 // ============================================
-// FUNGSI: CEK ORDER
+// FUNGSI: CEK ORDER (FIXED - Dengan Amount)
 // ============================================
-async function checkOrder(m, orderId) {
+async function checkOrder(m, orderId, usedPrefix, command) {
   try {
     await global.loading(m, m.conn);
     
@@ -535,35 +695,29 @@ async function checkOrder(m, orderId) {
       return m.reply('❌ Ini bukan order kamu!');
     }
     
+    // ✅ FIX: Sertakan amount
     const transaction = await checkTransaction(orderId, order.total_price);
+    const status = transaction.status?.toLowerCase();
     
-    if (transaction.status !== order.status) {
+    // Update status jika berbeda
+    if (status !== order.status?.toLowerCase()) {
       global.sqlite
         .prepare(`UPDATE orders SET status = ?, updated_at = unixepoch() WHERE id = ?`)
-        .run(transaction.status, orderId);
+        .run(status, orderId);
       
-      order.status = transaction.status;
+      order.status = status;
       
-      if (transaction.status === 'PAID' || transaction.status === 'paid') {
+      // ========================================
+      // TANGANI SEMUA STATUS FINAL
+      // ========================================
+      
+      if (status === 'paid') {
         await processSuccessPayment(orderId);
         
         if (cached) {
           cached.status = 'paid';
-        }
-        
-        try {
-          if (cached?.qr_message_id && cached?.qr_message_chat) {
-            await m.conn.sendMessage(cached.qr_message_chat, {
-              delete: {
-                remoteJid: cached.qr_message_chat,
-                fromMe: true,
-                id: cached.qr_message_id
-              }
-            });
-            console.log(`🗑️ QR message deleted (check): ${cached.qr_message_id}`);
-          }
-        } catch (e) {
-          console.error('❌ Gagal hapus QR:', e.message);
+          await deleteQRMessage(m.conn, cached);
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
         }
         
         const metadata = JSON.parse(order.metadata || '{}');
@@ -573,22 +727,71 @@ async function checkOrder(m, orderId) {
           metadata.type === 'jadibot' ? `Jadibot ${metadata.duration} Hari` :
           order.item;
         
-        const successMsg = 
+        return m.reply(
           `✅ *Pembayaran Berhasil!*\n\n` +
           `📦 ${itemDisplay}\n` +
           `💰 ${formatRupiah(order.total_price)}\n\n` +
-          `📊 Produk berhasil ditambahkan!`;
+          `📊 Produk berhasil ditambahkan!`
+        );
+      }
+      
+      if (status === 'canceled' || status === 'cancelled') {
+        if (cached) {
+          cached.status = 'canceled';
+          await deleteQRMessage(m.conn, cached);
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+        }
         
-        return m.reply(successMsg);
+        return m.reply(
+          `❌ *Pembayaran Dibatalkan*\n\n` +
+          `🆔 Order: ${orderId}\n` +
+          `💳 ${formatRupiah(order.total_price)}\n\n` +
+          `Transaksi ini telah dibatalkan oleh sistem.\n` +
+          `Silahkan buat transaksi baru dengan ${usedPrefix + command}`
+        );
+      }
+      
+      if (status === 'expired') {
+        if (cached) {
+          cached.status = 'expired';
+          await deleteQRMessage(m.conn, cached);
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+        }
+        
+        return m.reply(
+          `⏰ *Transaksi Kadaluarsa*\n\n` +
+          `🆔 Order: ${orderId}\n` +
+          `💳 ${formatRupiah(order.total_price)}\n\n` +
+          `Waktu pembayaran sudah habis.\n` +
+          `Silahkan buat transaksi baru dengan ${usedPrefix + command}`
+        );
+      }
+      
+      if (status === 'failed') {
+        if (cached) {
+          cached.status = 'failed';
+          await deleteQRMessage(m.conn, cached);
+          setTimeout(() => activeTransactions.delete(orderId), 5000);
+        }
+        
+        return m.reply(
+          `❌ *Pembayaran Gagal*\n\n` +
+          `🆔 Order: ${orderId}\n` +
+          `💳 ${formatRupiah(order.total_price)}\n\n` +
+          `Terjadi kesalahan pada pembayaran.\n` +
+          `Silahkan buat transaksi baru dengan ${usedPrefix + command}`
+        );
       }
     }
     
+    // Tampilkan status
     const statusMap = {
       'pending': '⏳ Menunggu pembayaran',
-      'PAID': '✅ Sudah dibayar',
       'paid': '✅ Sudah dibayar',
       'expired': '⏰ Kadaluarsa',
-      'cancelled': '❌ Dibatalkan'
+      'canceled': '❌ Dibatalkan',
+      'cancelled': '❌ Dibatalkan',
+      'failed': '❌ Gagal'
     };
     
     let timeLeft = '';
@@ -601,17 +804,23 @@ async function checkOrder(m, orderId) {
       }
     }
     
-    const statusMsg = 
+    const metadata = JSON.parse(order.metadata || '{}');
+    const itemDisplay = 
+      metadata.type === 'limit' ? `Limit ${metadata.limit_amount}` :
+      metadata.type === 'rent' ? `Rent Group ${metadata.duration} Hari` :
+      metadata.type === 'jadibot' ? `Jadibot ${metadata.duration} Hari` :
+      order.item;
+    
+    return m.reply(
       `📊 *Status Order*\n\n` +
       `🆔 Order: ${orderId}\n` +
-      `📦 Item: ${order.item}\n` +
+      `📦 Item: ${itemDisplay}\n` +
       `💰 Total: ${formatRupiah(order.total_price)}\n` +
-      `📌 Status: ${statusMap[order.status] || order.status}\n` +
+      `📌 Status: ${statusMap[status] || status}\n` +
       `${timeLeft}` +
       `🕐 Dibuat: ${new Date(order.created_at * 1000).toLocaleString('id-ID')}\n\n` +
-      `${order.status === 'pending' ? '💡 Tunggu pembayaran atau scan ulang QR Code' : ''}`;
-    
-    return m.reply(statusMsg);
+      `${status === 'pending' ? '💡 Tunggu pembayaran atau scan ulang QR Code' : ''}`
+    );
     
   } catch (e) {
     global.logger?.error(e);

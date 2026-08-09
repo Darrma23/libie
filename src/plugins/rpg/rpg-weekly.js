@@ -48,6 +48,7 @@ let handler = async (m, { conn, isPrems }) => {
 handler.help = ['weekly']
 handler.tags = ['rpg']
 handler.command = /^(weekly)$/i
+handler.register = true
 
 export default handler
 

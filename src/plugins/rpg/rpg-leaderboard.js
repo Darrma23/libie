@@ -38,23 +38,64 @@ let handler = async (m, { conn, args, participants }) => {
   const inGroup = (jid) =>
     participants.some((p) => p.id === jid || p.jid === jid);
 
-  // ===== RENDER + MENTIONS =====
+  // ===== FUNGSI GET NICKNAME =====
+  const getNickname = async (jid) => {
+    try {
+      // 1. Cari di participants group
+      const participant = participants.find(p => p.id === jid || p.jid === jid);
+      if (participant?.name) return participant.name;
+      
+      // 2. Cari di kontak (pakai conn)
+      try {
+        const contact = await conn.sendMessage(jid, { 
+          react: { text: '✅', key: { remoteJid: jid } } 
+        }).catch(() => {});
+      } catch {}
+      
+      // 3. Coba dapatkan nama dari profil
+      try {
+        const profile = await conn.profilePictureUrl(jid, 'image').catch(() => null);
+      } catch {}
+      
+      // 4. Cari di database user
+      const userDb = global.db?.data?.users?.[jid];
+      if (userDb?.name) return userDb.name;
+      
+      // 5. Cari di kontak global
+      if (global.contacts?.[jid]?.name) return global.contacts[jid].name;
+      if (global.contacts?.[jid]?.notify) return global.contacts[jid].notify;
+      
+      // 6. Coba dapatkan nama dari cache
+      if (global.nameCache?.[jid]) return global.nameCache[jid];
+      
+      // 7. Fallback: nomor HP
+      return jid.split("@")[0];
+    } catch {
+      return jid.split("@")[0];
+    }
+  };
+
+  // ===== RENDER =====
   const render = async (title, key, list, suffix) => {
     const myRank = rankOf(list);
     const mentions = [];
 
     const lines = await Promise.all(
       list.slice(0, len).map(async (u, i) => {
-        let name;
+        let displayName;
+        const isInGroup = inGroup(u.jid);
+        const nickname = await getNickname(u.jid);
 
-        if (inGroup(u.jid)) {
-          name = `@${u.jid.split("@")[0]}`;
+        if (isInGroup) {
+          // Jika di group: tag + nickname
+          displayName = `@${u.jid.split("@")[0]} (${nickname})`;
           mentions.push(u.jid);
         } else {
-          name = "@";
+          // Jika tidak di group: nickname aja
+          displayName = `(${nickname})`;
         }
 
-        return `${i + 1}. ${name} *${u[key]} ${suffix}*`;
+        return `${i + 1}. ${displayName} *${u[key]} ${suffix}*`;
       })
     );
 

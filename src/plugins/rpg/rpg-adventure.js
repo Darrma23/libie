@@ -91,7 +91,7 @@ Kamu mendapatkan:
     setTimeout(() => conn.reply(m.chat, rareMsg, m), 3000)
 
     // ===== APPLY KE SQLITE VIA PROXY =====
-    u.health -= healthLost
+    u.health = Math.max(0, u.health - healthLost)
     u.exp += exp
     u.money += uang
     u.tiketcoin += 1

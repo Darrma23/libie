@@ -6,15 +6,13 @@ let handler = async (m, { conn, usedPrefix, participants }) => {
   }
 
   // ===== AMBIL USER GROUP =====
-  let users = participants.map(u => u.id)
-  let lawan
+  let users = participants.map(u => u.id).filter(id => id && id !== m.sender)
 
-  do {
-    lawan = users[Math.floor(Math.random() * users.length)]
-  } while (
-    lawan === m.sender ||
-    !global.rpg?.data?.user?.[lawan]
-  )
+  if (!users.length) {
+    return m.reply('*Tidak ada lawan di grup ini untuk diajak bertarung.*')
+  }
+
+  let lawan = users[Math.floor(Math.random() * users.length)]
 
   let user = global.rpg.data.user[m.sender]
   let enemy = global.rpg.data.user[lawan]
@@ -22,6 +20,8 @@ let handler = async (m, { conn, usedPrefix, participants }) => {
   let lamaPertarungan = getRandom(5, 15)
 
   conn.fight[m.sender] = true
+
+  try {
 
   const tagUser = '@' + m.sender.split('@')[0]
   const tagLawan = '@' + lawan.split('@')[0]
@@ -108,7 +108,9 @@ Ga dapet apa-apa.`,
     )
   }
 
-  delete conn.fight[m.sender]
+  } finally {
+    delete conn.fight[m.sender]
+  }
 }
 
 handler.help = ['fight']

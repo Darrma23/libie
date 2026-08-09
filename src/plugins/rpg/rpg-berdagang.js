@@ -7,6 +7,7 @@ let handler = async (m, { conn }) => {
   // ===== TARGET =====
   let who = m.isGroup ? m.mentionedJid[0] : m.chat
   if (!who) return m.reply('Tag salah satu lah, yang mau berdagang bareng')
+  if (who === m.sender) return m.reply('Gak bisa berdagang sama diri sendiri')
   if (!users[who]) return m.reply('Pengguna tidak ada di database')
 
   const target = users[who]

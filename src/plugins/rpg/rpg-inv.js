@@ -1,4 +1,6 @@
-import { xpRange } from '#lib/levelling.js'
+// exp yang dibutuhkan per level, harus sama persis dengan rumus di handler.js
+// (levelling.js pakai rumus lain & tidak dipakai oleh mesin leveling asli)
+const expToLevel = level => 100 + level * 50
 
 let handler = async (m, { conn }) => {
   const user = global.rpg.data.user[m.sender]
@@ -30,7 +32,7 @@ let handler = async (m, { conn }) => {
     hero, exphero
   } = user
 
-  let { max } = xpRange(level, exp, global.multiplier || 1)
+  let max = expToLevel(level)
   let name = m.sender
 
   const readMore = String.fromCharCode(8206).repeat(4001)
@@ -98,7 +100,7 @@ Emas: ${emas}
 Diamond: ${diamond}
 
 *Hero*
-My Hero: *${hero == 0 ? 'Tidak Punya' : '' || hero > 0 && hero < 40 ? `Level ${hero}` : '' || hero == 40 ? 'Level MAX' : ''}*
+My Hero: *${hero == 0 ? 'Tidak Punya' : '' || hero < 100 ? `Level ${hero}` : 'Level MAX'}*
 
 *Pet*
 Kucing: *${kucing == 0 ? 'Tidak Punya' : '' || kucing < 5 ? `Level ${kucing}` : 'Level MAX'}*

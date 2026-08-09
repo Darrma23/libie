@@ -11,7 +11,7 @@ let handler = async (m, { conn, command, args }) => {
 }
 handler.help = ['pull', 'pullall']
 handler.tags = ['rpg']
-handler.command = /^pull([0-9]+)|pull|pullall$/i
+handler.command = /^pull(all|[0-9]+)?$/i
 handler.limit = true
 handler.group = true
 
