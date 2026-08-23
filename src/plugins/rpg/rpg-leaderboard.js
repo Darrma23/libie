@@ -1,4 +1,4 @@
-let handler = async (m, { conn, args, participants }) => {
+/*let handler = async (m, { conn, args, participants }) => {
   if (typeof global.getAllUsers !== "function") {
     return conn.reply(
       m.chat,
@@ -134,3 +134,4 @@ handler.group = true;
 handler.limit = true;
 
 export default handler;
+*/

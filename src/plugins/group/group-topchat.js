@@ -1,7 +1,8 @@
-// src/plugins/group/totalchat-top.js
+// src/plugins/group/topchat-top.js
 // Versi ULTRA KEREN dengan badge, progress bar █░, dan statistik lengkap
+// Setiap grup punya statistik sendiri (pakai SQLite)
 
-let handler = async (m, { conn, args, usedPrefix, command, isOwner, isAdmin, isRowner, participants, groupMetadata }) => {
+let handler = async (m, { conn, args, usedPrefix, command, participants, groupMetadata }) => {
     if (!m.isGroup) return m.reply('❌ Khusus grup!');
     
     // Parse argumen untuk jumlah top yang ditampilkan (default 10)
@@ -11,24 +12,19 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner, isAdmin, isR
 
     let meta = groupMetadata || await conn.groupMetadata(m.chat);
     let participantsList = participants || meta?.participants || [];
+    let groupId = m.chat;
 
-    // Ambil data chat
-    let chatCounts = {};
-    let totalAll = 0;
+    // Ambil data statistik per grup dari SQLite
+    let stats = global.getGroupChatStats ? global.getGroupChatStats(groupId) : { chatCounts: {}, totalChats: 0 };
+    let chatCounts = stats.chatCounts || {};
+    let totalAll = stats.totalChats || 0;
     let memberWithChat = 0;
 
     for (let p of participantsList) {
         let jid = p.id || p.jid;
         if (!jid) continue;
-        try {
-            let user = global.rpg?.data?.user?.[jid];
-            let count = user?.chat_count || 0;
-            chatCounts[jid] = count;
-            totalAll += count;
-            if (count > 0) memberWithChat++;
-        } catch (e) {
-            chatCounts[jid] = 0;
-        }
+        let count = chatCounts[jid] || 0;
+        if (count > 0) memberWithChat++;
     }
 
     let memberStats = participantsList
@@ -70,7 +66,7 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner, isAdmin, isR
             // Format tag dengan mention
             let tag = `@${member.id.split('@')[0]}`;
             
-            // Progress bar █░ (TETAP SEPERTI SEBELUMNYA)
+            // Progress bar █░
             let maxCount = topMembers[0]?.count || 1;
             let percentage = Math.round((member.count / maxCount) * 100);
             let barLength = Math.round((member.count / maxCount) * 10);
@@ -94,7 +90,7 @@ let handler = async (m, { conn, args, usedPrefix, command, isOwner, isAdmin, isR
         });
 
         // STATISTIK BAWAH
-        let avg = Math.round(totalAll / memberWithChat);
+        let avg = memberWithChat > 0 ? Math.round(totalAll / memberWithChat) : 0;
         let mostActive = topMembers[0];
         let leastActive = topMembers[topMembers.length - 1];
         

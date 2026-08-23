@@ -195,7 +195,6 @@ async function pair(conn) {
             // console.log langsung, jangan lewat global.logger — kalau BAILEYS_LOG_LEVEL
             // di-set ke level yang lebih tinggi dari info (atau "silent"), pairing code
             // wajib tetap muncul karena tanpa ini bot gak bisa dipakai sama sekali.
-            console.log(`\n[PAIRING CODE] ${code}\n`);
             global.logger.info(`Pair code: ${code}`);
         } catch (e) {
             global.logger.error({ error: e.message }, "Pair error");

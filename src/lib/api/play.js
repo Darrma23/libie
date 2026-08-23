@@ -4,7 +4,7 @@
  * @description Multi-endpoint YouTube Music search and downloader with
  * metadata extraction and fallback strategy for audio content.
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 /**
@@ -46,18 +46,13 @@ export async function play(query) {
      * @constant {Array<string>}
      */
     const endpoints = [
+        `https://api.jerexd.my.id/api/downloader/play?apikey=jere_LMOR6_JPZ92O&q=${encoded}`,
+        `https://api.azbry.com/api/download/ytplay?q=${encoded}`,
         `https://api-faa.my.id/faa/ytplay?query=${encoded}`,
-        `https://api.ootaizumi.web.id/downloader/youtube/play?query=${encoded}`,
-        `https://api.nekolabs.web.id/downloader/youtube/play/v1?q=${encoded}`,
         `https://anabot.my.id/api/download/playmusic?query=${encoded}&apikey=freeApikey`,
         `https://api.elrayyxml.web.id/api/downloader/ytplay?q=${encoded}`,
     ];
 
-    /**
-     * Attempt each endpoint until successful or all fail
-     * @private
-     * @loop
-     */
     for (const endpoint of endpoints) {
         const res = await fetch(endpoint).catch(() => null);
         if (!res) continue;
@@ -70,6 +65,42 @@ export async function play(query) {
         }
 
         if (!json || (!json.success && !json.status)) continue;
+
+        // Jerexd API
+        if (json.status === true && json.result?.download && json.result?.title) {
+            return {
+                success: true,
+                title: json.result.title || "Unknown Title",
+                channel: json.result.channel || "Unknown Artist",
+                cover: json.result.thumbnail || null,
+                url: json.result.url || null,
+                downloadUrl: json.result.download || json.result.download_url,
+            };
+        }
+
+        // Azbry API
+        if (json.status === true && json.result?.download && json.result?.title) {
+            return {
+                success: true,
+                title: json.result.title || "Unknown Title",
+                channel: json.result.channel || "Unknown Artist",
+                cover: json.result.thumbnail || null,
+                url: json.result.url || null,
+                downloadUrl: json.result.download,
+            };
+        }
+
+        // FAA API
+        if (json.status === true && json.result?.mp3 && json.result?.title) {
+            return {
+                success: true,
+                title: json.result.title || "Unknown Title",
+                channel: json.result.author || "Unknown Artist",
+                cover: json.result.thumbnail || null,
+                url: json.result.url || null,
+                downloadUrl: json.result.mp3,
+            };
+        }
 
         if (json.result?.downloadUrl && json.result?.metadata) {
             const { title, channel, cover, url } = json.result.metadata;
@@ -136,10 +167,6 @@ export async function play(query) {
         }
     }
 
-    /**
-     * All endpoints failed to return usable data
-     * @return {Object} Failure response with error message
-     */
     return {
         success: false,
         error: "No downloadable track found from any provider. The track may be unavailable, restricted, or the search query was invalid.",

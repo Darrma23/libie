@@ -310,6 +310,31 @@ const SCHEMAS = {
             "CREATE INDEX IF NOT EXISTS idx_jadibot_expired ON jadibot(expired)"
         ]
     },
+    group_chat: {
+       primaryKey: "id",
+       columns: {
+           id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+           groupId: "TEXT NOT NULL",
+           memberId: "TEXT NOT NULL",
+           count: "INTEGER DEFAULT 0",
+           lastUpdated: "INTEGER DEFAULT 0"
+       },
+        indices: [
+            "CREATE INDEX IF NOT EXISTS idx_group_chat_group ON group_chat(groupId)",
+            "CREATE INDEX IF NOT EXISTS idx_group_chat_member ON group_chat(memberId)"
+        ]
+    },
+    group_stats: {
+        primaryKey: "groupId",
+        columns: {
+            groupId: "TEXT PRIMARY KEY",
+            totalChats: "INTEGER DEFAULT 0",
+            lastUpdated: "INTEGER DEFAULT 0"
+        },
+        indices: [
+            "CREATE INDEX IF NOT EXISTS idx_group_stats_group ON group_stats(groupId)"
+        ]
+    }
 };
 
 /**
@@ -473,7 +498,9 @@ class DataWrapper {
             user: new RowCache(100),
             rent: new RowCache(100),
             jadibot: new RowCache(100),
-            orders: new RowCache(100)
+            orders: new RowCache(100),
+            group_chat: new RowCache(100),
+            group_stats: new RowCache(50)
         };
 
         // Create proxy-based data accessors
@@ -481,7 +508,9 @@ class DataWrapper {
             user: this._createProxy("user"),
             rent: this._createProxy("rent"),
             jadibot: this._createProxy("jadibot"),
-            orders: this._createProxy("orders")
+            orders: this._createProxy("orders"),
+            group_chat: this._createProxy("group_chat"),
+            group_stats: this._createProxy("group_stats")
         };
     }
 
@@ -494,6 +523,8 @@ class DataWrapper {
      */
     _createProxy(table) {
         const cache = this.rowCaches[table];
+        const schema = SCHEMAS[table];
+        const pk = schema?.primaryKey;
 
         return new Proxy(
             {},
@@ -638,6 +669,90 @@ global.getAllUsers = function () {
             FROM user
         `)
         .all();
+};
+
+// ==========================================
+// ✅ TAMBAHKAN FUNGSI UNTUK STATISTIK PER GRUP
+// ==========================================
+
+/**
+ * Update chat count for a member in a specific group
+ * @global
+ * @function updateGroupChat
+ * @param {string} groupId - Group JID
+ * @param {string} memberId - Member JID
+ * @returns {void}
+ */
+global.updateGroupChat = (groupId, memberId) => {
+    if (!groupId || !memberId) return;
+    
+    try {
+        // Update atau insert member count
+        const existing = sqlite
+            .query("SELECT count FROM group_chat WHERE groupId = ? AND memberId = ?")
+            .get(groupId, memberId);
+        
+        if (existing) {
+            sqlite
+                .query("UPDATE group_chat SET count = count + 1, lastUpdated = ? WHERE groupId = ? AND memberId = ?")
+                .run(Date.now(), groupId, memberId);
+        } else {
+            sqlite
+                .query("INSERT INTO group_chat (groupId, memberId, count, lastUpdated) VALUES (?, ?, 1, ?)")
+                .run(groupId, memberId, Date.now());
+        }
+        
+        // Update total chat grup
+        const group = sqlite
+            .query("SELECT totalChats FROM group_stats WHERE groupId = ?")
+            .get(groupId);
+        
+        if (group) {
+            sqlite
+                .query("UPDATE group_stats SET totalChats = totalChats + 1, lastUpdated = ? WHERE groupId = ?")
+                .run(Date.now(), groupId);
+        } else {
+            sqlite
+                .query("INSERT INTO group_stats (groupId, totalChats, lastUpdated) VALUES (?, 1, ?)")
+                .run(groupId, Date.now());
+        }
+    } catch (e) {
+        logger.error(e, "Failed to update group chat");
+    }
+};
+
+/**
+ * Get chat statistics for a specific group
+ * @global
+ * @function getGroupChatStats
+ * @param {string} groupId - Group JID
+ * @returns {Object} Group statistics
+ */
+global.getGroupChatStats = (groupId) => {
+    if (!groupId) return { chatCounts: {}, totalChats: 0 };
+    
+    try {
+        const members = sqlite
+            .query("SELECT memberId, count FROM group_chat WHERE groupId = ?")
+            .all(groupId);
+        
+        const group = sqlite
+            .query("SELECT totalChats FROM group_stats WHERE groupId = ?")
+            .get(groupId);
+        
+        const chatCounts = {};
+        for (const row of members) {
+            chatCounts[row.memberId] = row.count;
+        }
+        
+        return {
+            chatCounts,
+            totalChats: group?.totalChats || 0
+        };
+    } catch (e) {
+        logger.error(e, "Failed to get group chat stats");
+        return { chatCounts: {}, totalChats: 0 };
+    }
 };
 
 export const ROLES = [
