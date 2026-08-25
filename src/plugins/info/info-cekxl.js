@@ -112,4 +112,6 @@ handler.help = ["cekxl"];
 handler.tags = ["info"];
 handler.command = /^cekxl$/i;
 
+handler.premium = true
+
 export default handler;

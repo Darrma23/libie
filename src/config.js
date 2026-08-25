@@ -1021,7 +1021,11 @@ const FAILURE_MESSAGES = {
     },
     limit: {
         title: "[ACCESS DENIED]",
-        body: "your limit is up, please buy or take daily prizes.",
+        body: "Your limit is up, please buy or take daily prizes.",
+    },
+    premium: {
+        title: "[ACCESS DENIED]",
+        body: "This feature is exclusively for premium users.\nUpgrade to premium to access this feature.\n\nContact owner for premium subscription.",
     },
 };
 

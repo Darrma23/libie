@@ -51,8 +51,11 @@ const SCHEMAS = {
             afkTime: "INTEGER DEFAULT 0",
             banned: "INTEGER DEFAULT 0",
             bannedDate: "INTEGER DEFAULT 0",
+           
             premium: "INTEGER DEFAULT 0",
             premiumTime: "INTEGER DEFAULT 0",
+            premiumType: "TEXT DEFAULT 'free'",
+           
             warn: "INTEGER DEFAULT 0",
             role: "TEXT DEFAULT 'Beginner'",
             autolevelup: "INTEGER DEFAULT 1",

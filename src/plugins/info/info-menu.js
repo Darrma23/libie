@@ -340,6 +340,7 @@ function getHelp() {
             mods: !!p.mods,
             admin: !!p.admin,
             limit: !!p.limit,
+            premium: !!p.premium,
         }));
 }
 
@@ -362,6 +363,7 @@ function format(help, cat, prefix) {
                 if (p.mods) badge.push('dev')
                 if (p.admin) badge.push('admin')
                 if (p.limit) badge.push('limit')
+                if (p.premium) badge.push('premium')
 
                 const mark = badge.length ? ` (${badge.join(', ')})` : ''
 

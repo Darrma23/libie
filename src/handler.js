@@ -150,10 +150,15 @@ async function printMessage(
 const expToLevel = level => 100 + level * 50;
 
 const clockString = ms => {
+	if (ms < 0) ms = 0;
 	const h = Math.floor(ms / 3600000);
 	const m = Math.floor(ms / 60000) % 60;
 	const s = Math.floor(ms / 1000) % 60;
-	return [h, m, s].map(v => v.toString().padStart(2, "0")).join(":");
+	let text = '';
+	if (h) text += h + ' jam ';
+	if (m) text += m + ' menit ';
+	if (s) text += s + ' detik';
+	return text || 'baru saja';
 };
 
 const resolveHelper = {
@@ -459,6 +464,53 @@ export async function handler(chatUpdate) {
           }
       }
 
+      // ==========================================
+      // ✅ CEK AFK
+      // ==========================================
+      if (m.isGroup && m.sender) {
+          let user = global.rpg?.data?.user?.[m.sender];
+          
+          // Kalau user AFK dan ngirim pesan (bukan command)
+          if (user?.afk === 1 && !m.isCommand) {
+              user.afk = 0;
+              user.afkReason = '';
+              user.afkTime = 0;
+              await m.reply(`✅ *Kamu sudah kembali dari AFK!*\nSelamat datang kembali!`);
+          }
+          
+          // Cek mention ke user AFK
+          if (m.mentionedJid && m.mentionedJid.length > 0) {
+              for (let mentioned of m.mentionedJid) {
+                  let mentionedUser = global.rpg?.data?.user?.[mentioned];
+                  if (mentionedUser?.afk === 1) {
+                      let name = await this.getName(mentioned);
+                      let reason = mentionedUser.afkReason || '';
+                      let afkTime = mentionedUser.afkTime || Date.now();
+                      let duration = clockString(Date.now() - afkTime);
+                      
+                      let text = `Jangan tag dia!\nDia sedang AFK ${reason ? 'dengan alasan ' + reason : 'tanpa alasan'}\nSelama ${duration}`;
+                      
+                      await m.reply(text);
+                  }
+              }
+          }
+          
+          // Cek reply ke pesan user AFK
+          if (m.quoted && m.quoted.sender) {
+              let quotedUser = global.rpg?.data?.user?.[m.quoted.sender];
+              if (quotedUser?.afk === 1) {
+                  let name = await this.getName(m.quoted.sender);
+                  let reason = quotedUser.afkReason || '';
+                  let afkTime = quotedUser.afkTime || Date.now();
+                  let duration = clockString(Date.now() - afkTime);
+                  
+                  let text = `Jangan reply dia!\nDia sedang AFK ${reason ? 'dengan alasan ' + reason : 'tanpa alasan'}\nSelama ${duration}`;
+                  
+                  await m.reply(text);
+              }
+          }
+      }
+
 		const settings =
 			global.db?.data?.settings?.[this.user.lid] || {};
 
@@ -480,11 +532,30 @@ export async function handler(chatUpdate) {
         isOwner = isRowner;
       }
 
-		const isPremium =
-			isOwner ||
-			(rpg?.premium === 1 &&
-				(rpg?.premiumTime === 0 ||
-					rpg?.premiumTime > Date.now()));
+		// ========== CEK PREMIUM LEBIH LENGKAP ==========
+		const isPremium = (() => {
+		    // Owner selalu premium
+		    if (isOwner) return true;
+		    
+		    // Kalau user ga ada
+		    if (!rpg) return false;
+		    
+		    // Premium aktif?
+		    if (rpg.premium !== 1) return false;
+		    
+		    // Lifetime premium (premiumTime = 0)
+		    if (rpg.premiumTime === 0) return true;
+		    
+		    // Cek expired
+		    return rpg.premiumTime > Date.now();
+		})();
+
+		// Ambil tipe premium
+		const premiumType = rpg?.premiumType || 'free';
+
+		// ✅ SIMPAN KE m BIAR BISA DIPAKAI PLUGIN
+		m.isPremium = isPremium;
+		m.premiumType = premiumType;
 
 		let groupMetadata = {};
 		let participants = [];
@@ -676,16 +747,24 @@ export async function handler(chatUpdate) {
 					continue;
 				}
 
-				let cost = 0;
-				if (plugin.limit === true) cost = 1;
-				else if (Number.isInteger(plugin.limit))
-					cost = plugin.limit;
+            if (plugin.premium && !isPremium) {
+                return global.dfail("premium", m, this);
+            }
 
-				if (cost > 0 && !isPremium) {
-					if ((rpg?.user_limit || 0) < cost) {
-						return global.dfail("limit", m, this);
-					}
-				}
+				let cost = 0;
+            if (plugin.limit === true) cost = 1;
+            else if (Number.isInteger(plugin.limit))
+                cost = plugin.limit;
+            
+            if (cost > 0) {
+                let userLimit = rpg?.user_limit || 0;
+                
+                if (!isPremium) {
+                    if (userLimit < cost) {
+                        return global.dfail("limit", m, this);
+                    }
+                }
+            }
 
 				const extra = {
 					match,
@@ -710,6 +789,8 @@ export async function handler(chatUpdate) {
 					isRAdmin,
 					isAdmin,
 					isBotAdmin,
+					isPremium: isPremium,
+					premiumType: premiumType,
 					chatUpdate,
 					__dirname: pluginDir,
 					__filename,
@@ -754,9 +835,13 @@ export async function handler(chatUpdate) {
 						rpg.level += 1;
 					}
 
-				if (cost > 0) {
-						rpg.user_limit -= cost;
-					}
+            if (cost > 0) {
+                let currentLimit = rpg.user_limit || 0;
+                
+                if (currentLimit > 0) {
+                    rpg.user_limit = Math.max(0, currentLimit - cost);
+                }
+            }
 				}
 				break;
 			}
