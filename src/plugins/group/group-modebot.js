@@ -1,35 +1,34 @@
 /**
  * @file Control bot response mode in chat
  * @module plugins/group/botmode
- * @license Apache-2.0
- * @author Naruya Izumi
- */
-
-/**
- * Controls bot response mode in a chat (mute/unmute)
- * @async
- * @function handler
- * @param {Object} m - Message object
- * @param {Object} param1 - Destructured parameters
- * @param {string} param1.text - Text argument
- * @param {string} param1.usedPrefix - Command prefix used
- * @param {string} param1.command - Command name
- * @returns {Promise<void>}
- *
- * @description
- * Command to toggle the bot's response mode in a chat.
- * When muted, the bot will not respond to commands except for specific ones.
- *
- * @features
- * - Toggle bot responses ON/OFF
- * - Show current bot status
- * - Support for 'on/off' and 'unmute/mute' aliases
- * - Only accessible by bot owner
- * - Prevents redundant state changes
+ * @description Mengontrol mode respons bot di chat (mute/unmute)
+ * @author Himejima
  */
 
 let handler = async (m, { text, usedPrefix, command }) => {
-    const chat = global.db.data.chats[m.chat];
+    // Ambil data chat dari rowCaches
+    const chatKey = `chats:${m.chat}`;
+    const chatCache = global.db?.rowCaches?.chats?.cache;
+    
+    if (!chatCache) {
+        return m.reply('❌ Database tidak tersedia!');
+    }
+
+    // Ambil data chat dari cache
+    let chat = chatCache.get(chatKey);
+    
+    // Jika belum ada, buat baru
+    if (!chat) {
+        chat = {
+            jid: m.chat,
+            mute: 0,
+            isGroup: m.isGroup ? 1 : 0,
+            name: m.isGroup ? 'Group' : null,
+            lastActivity: Date.now(),
+            expired: 0
+        };
+        chatCache.set(chatKey, chat);
+    }
 
     if (!text) {
         const status = chat.mute ? "OFF" : "ON";
@@ -40,13 +39,15 @@ let handler = async (m, { text, usedPrefix, command }) => {
         case "off":
         case "mute":
             if (chat.mute) return m.reply("Already OFF");
-            chat.mute = true;
+            chat.mute = 1;
+            chatCache.set(chatKey, chat);
             return m.reply("Bot OFF");
 
         case "on":
         case "unmute":
             if (!chat.mute) return m.reply("Already ON");
-            chat.mute = false;
+            chat.mute = 0;
+            chatCache.set(chatKey, chat);
             return m.reply("Bot ON");
 
         default:
@@ -54,16 +55,14 @@ let handler = async (m, { text, usedPrefix, command }) => {
     }
 };
 
-/**
- * Command metadata for help system
- * @property {Array<string>} help - Help text
- * @property {Array<string>} tags - Command categories
- * @property {RegExp} command - Command pattern matching
- * @property {boolean} owner - Whether only bot owner can use this command
- */
 handler.help = ["botmode"];
 handler.tags = ["group"];
 handler.command = /^(bot(mode)?)$/i;
 handler.owner = true;
+handler.desc = [
+    'Mengontrol mode respons bot di chat (ON/OFF)',
+    'Bot akan ignore semua perintah jika OFF',
+    'Hanya owner yang bisa menggunakan'
+];
 
 export default handler;

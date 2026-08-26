@@ -396,20 +396,37 @@ export async function handler(chatUpdate) {
         // Biar ga respon chat bot
         if (m.fromMe) return;
 		
+		// ==========================================
+		// ✅ SIMPAN DATA CHAT KE ROWCACHES (FIXED)
+		// ==========================================
 		if (m.chat) {
-        const isGroup = m.chat.endsWith("@g.us") ? 1 : 0
-      
-      if (!global.db.data.chats[m.chat]) {
-         global.db.data.chats[m.chat] = {}
-         }
-         
-        global.db.data.chats[m.chat].isGroup = isGroup
-        global.db.data.chats[m.chat].lastActivity = Date.now()
-      
-        if (isGroup && (m.chatName || m.pushName)) {
-          global.db.data.chats[m.chat].name = m.chatName || "Group"
-        }
-      }
+			const isGroup = m.chat.endsWith("@g.us") ? 1 : 0;
+			const chatKey = `chats:${m.chat}`;
+			const chatCache = global.db?.rowCaches?.chats?.cache;
+			
+			if (chatCache) {
+				let chat = chatCache.get(chatKey);
+				
+				if (!chat) {
+					chat = {
+						jid: m.chat,
+						mute: 0,
+						isGroup: isGroup,
+						name: m.isGroup ? (m.chatName || "Group") : null,
+						lastActivity: Date.now(),
+						expired: 0
+					};
+				} else {
+					chat.lastActivity = Date.now();
+					chat.isGroup = isGroup;
+					if (isGroup && (m.chatName || m.pushName)) {
+						chat.name = m.chatName || "Group";
+					}
+				}
+				
+				chatCache.set(chatKey, chat);
+			}
+		}
 
 		const rpg = global.rpg?.data?.user?.[m.sender];
 		
@@ -695,8 +712,12 @@ export async function handler(chatUpdate) {
 				matchedKey = m.key;
 				m.plugin = name;
 
-				const chat =
-					global.db?.data?.chats?.[m.chat] || {};
+				// ==========================================
+				// ✅ AMBIL DATA CHAT DARI ROWCACHES (FIXED)
+				// ==========================================
+				const chatKey = `chats:${m.chat}`;
+				const chatCache = global.db?.rowCaches?.chats?.cache;
+				const chat = chatCache?.get(chatKey) || {};
 
 				const permission = checkPermissions(
 					m,

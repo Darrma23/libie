@@ -95,6 +95,35 @@ class WinkEnhancer {
     });
   }
 
+  // Konversi UUID ke numeric ID (15 digit)
+  _getNumericUserId() {
+    const hash = crypto.createHash('md5').update(this.GNUM).digest('hex');
+    const num = BigInt('0x' + hash.slice(0, 14)).toString();
+    return num.slice(0, 15);
+  }
+
+  // Init user (jika diperlukan)
+  async _initUser() {
+    try {
+      const body = this._baseParams({
+        app_id: "1",
+        platform: "android",
+        device_id: this.GNUM
+      });
+      
+      const res = await this.api.post("/api/user/init.json", body.toString(), {
+        headers: { ...this._traceHeaders(), "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }
+      });
+      
+      if (res.data?.code === 0 && res.data?.data?.user_id) {
+        return res.data.data.user_id;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   async _getSign(suffix) {
     const params = this._baseParams({ suffix, type: "temp", count: "1" });
     const res = await this.api.get(`/api/file/get_maat_sign.json?${params}`, {
@@ -177,18 +206,31 @@ class WinkEnhancer {
   }
 
   async _delivery(sourceUrl, taskName) {
+    const userId = this._getNumericUserId();
+    
     const body = this._baseParams({
-      type: this.TASK_TYPE, content_type: this.CONTENT_TYPE, source_url: sourceUrl,
+      type: this.TASK_TYPE,
+      content_type: this.CONTENT_TYPE,
+      source_url: sourceUrl,
       type_params: JSON.stringify({ is_mirror: 0, orientation_tag: 1, j_420_trans: "1", return_ext: "2" }),
       right_detail: JSON.stringify({ source: "1", touch_type: "4", function_id: "630", material_id: "63011", url: "https://wink.ai/image-enhancer/upload" }),
       ext_params: JSON.stringify({ task_name: taskName, records: this.TASK_TYPE }),
       with_prepare: "1"
     });
+    
+    // Tambahkan user_id ke body (sebagai string)
+    body.append('user_id', userId);
+    
     const res = await this.api.post("/api/meitu_ai/delivery.json", body.toString(), {
-      headers: { ...this._traceHeaders(), "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }
+      headers: {
+        ...this._traceHeaders(),
+        "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "x-user-id": userId // tambahkan juga di header
+      }
     });
+    
     if (res.status >= 400 || res.data?.code !== 0)
-      throw new Error(`delivery gagal`);
+      throw new Error(`delivery gagal: ${JSON.stringify(res.data)}`);
     const data = res.data.data || {};
     return { msg_id: data.msg_id || "", prepare_msg_id: data.prepare_msg_id || "" };
   }
@@ -243,6 +285,10 @@ class WinkEnhancer {
 
     await this.jar.setCookie(`_sm=${this.GNUM}; Path=/; Domain=wink.ai`, this.BASE_URL);
     await this.jar.setCookie(`meitustat=${encodeURIComponent(JSON.stringify({ wgid: this.GNUM }))}; Path=/; Domain=wink.ai`, this.BASE_URL);
+    await this.jar.setCookie(`uid=${this._getNumericUserId()}; Path=/; Domain=wink.ai`, this.BASE_URL);
+
+    // Coba init user
+    await this._initUser();
 
     const mime = this._detectMime(imageBuffer);
     const ext = this._extFromMime(mime);
