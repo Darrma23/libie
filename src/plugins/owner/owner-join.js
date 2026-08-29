@@ -49,41 +49,61 @@ atau
     const code = match[1]
 
     try {
-        await global.loading(m, conn)
+        // Tampilkan loading (kalo ada)
+        if (typeof global.loading === 'function') {
+            await global.loading(m, conn)
+        }
 
         let metadata
+        let jid
 
+        // Coba cek info link dulu (kalo support)
         try {
             metadata = await conn.groupGetInviteInfo(code)
         } catch {
-            return m.reply("Link grup sudah tidak berlaku atau tidak dapat diakses.")
+            // Kalo gak support, langsung join aja
+            metadata = null
         }
 
-        const jid = await conn.groupAcceptInvite(code)
+        // Join grup
+        try {
+            jid = await conn.groupAcceptInvite(code)
+        } catch (err) {
+            if (err.message?.includes('already') || err.message?.includes('exists')) {
+                return m.reply("Bot sudah berada di grup tersebut.")
+            }
+            throw err
+        }
 
         if (!jid) {
             return m.reply("Gagal mendapatkan ID grup.")
         }
 
+        // Inisialisasi data chat kalo belum ada
+        if (!global.db.data.chats) {
+            global.db.data.chats = {}
+        }
+        if (!global.db.data.chats[jid]) {
+            global.db.data.chats[jid] = {}
+        }
+
+        // Set expired
         const chat = global.db.data.chats[jid]
+        chat.expired = days ? Date.now() + days * 86400000 : 0
 
-        chat.expired = days
-            ? Date.now() + days * 86400000
-            : 0
-
-        await conn.client(m.chat, {
-            title: "Join Group",
+        // Kirim notifikasi ke user
+        const groupName = metadata?.subject || 'Tidak diketahui'
+        await conn.sendMessage(m.chat, {
             text: `✅ Berhasil bergabung ke grup.
 
-📛 Nama Grup : ${metadata.subject}
+📛 Nama Grup : ${groupName}
 🆔 ID Grup : ${jid}
 
 ⏳ Masa Aktif :
-${days ? `${days} Hari` : "Unlimited"}`,
-            footer: global.config.watermark,
-            hasMediaAttachment: false
+${days ? `${days} Hari` : "Unlimited"}`
         })
 
+        // Kirim pesan sapa ke grup
         try {
             await conn.sendMessage(jid, {
                 text: days
@@ -100,18 +120,24 @@ Bot berhasil bergabung.
 
 ♾️ Masa aktif bot: *Unlimited*.`
             })
-        } catch {}
+        } catch (err) {
+            // Gagal kirim pesan sapa, tapi join udah berhasil
+            console.log('Gagal kirim pesan sapa:', err.message)
+        }
 
     } catch (e) {
         const msg = String(e?.message || e)
 
-        if (/already|exists|member/i.test(msg)) {
+        if (/already (in|exists)|participant|member already/i.test(msg)) {
             return m.reply("Bot sudah berada di grup tersebut.")
         }
 
-        return m.reply(`Gagal bergabung ke grup.\n\n${msg}`)
+        return m.reply(`❌ Gagal bergabung ke grup.\n\n${msg}`)
     } finally {
-        await global.loading(m, conn, true)
+        // Matikan loading (kalo ada)
+        if (typeof global.loading === 'function') {
+            await global.loading(m, conn, true)
+        }
     }
 }
 
