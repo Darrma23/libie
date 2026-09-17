@@ -24,6 +24,8 @@ import {
     cleanupReconnect,
 } from "#core/connection.js";
 import { himejima } from "#core/socket.js";
+import { buildCommandIndex } from "#lib/core/command-index.js";
+import { checkTransaction } from "./lib/pakasir.js";
 
 /**
  * Pairing configuration from global config
@@ -79,8 +81,8 @@ const logger = () => {
     };
 
     // Determine current log level from environment (fallback ke "info" kalau nilainya gak dikenal)
-const curLvl = LVL[Bun.env.BAILEYS_LOG_LEVEL?.toLowerCase()] ?? LVL.info;
-const should = (lvl) => LVL[lvl] >= curLvl;
+    const curLvl = LVL[Bun.env.BAILEYS_LOG_LEVEL?.toLowerCase()] ?? LVL.info;
+    const should = (lvl) => LVL[lvl] >= curLvl;
 
     /**
      * Formats values for logging
@@ -290,78 +292,94 @@ async function LIBIE() {
     global.pluginFolder = plugDir;
     
     // 1. load plugins dulu
-	await loadPlugins(
-	  plugDir,
-	  (dir, skipCache) => getAllPlugins(dir, pluginCache, skipCache)
-	)
-	
-	// 2. baru import handler
-	handlerModule = await import("./handler.js")
-	await handlerModule.initRedisReportListener(global.conn)
-	evt.setHandler(handlerModule)
+    await loadPlugins(
+      plugDir,
+      (dir, skipCache) => getAllPlugins(dir, pluginCache, skipCache)
+    )
+
+    // 🆕 1b. BUILD COMMAND INDEX
+    global.buildCommandIndex = buildCommandIndex;
+    buildCommandIndex();
+
+    // 2. baru import handler
+    handlerModule = await import("./handler.js")
+    await handlerModule.initRedisReportListener(global.conn)
+    evt.setHandler(handlerModule)
     
     
     // INIT HOT RELOAD (INI YANG BIKIN BOT LU "HIDUP")
     hotReloadCleanup = initHotReload(
-      plugDir,
-      async (filename, module) => {
-        try {
-          // FILE DIHAPUS
-          if (module === null) {
-            const oldPlugin = global.plugins[filename];
-    
-            if (oldPlugin?.cleanup instanceof Function) {
-              try {
-                await oldPlugin.cleanup();
-              } catch (e) {
-                global.logger.warn(
-                  { plugin: filename, error: e.message },
-                  "Plugin cleanup error"
-                );
-              }
-            }
-    
-            delete global.plugins[filename];
-            global.logger.info({ plugin: filename }, "Plugin removed");
-            return;
-          }
-    
-          // FILE DITAMBAH / DIUPDATE
+    plugDir,
+    async (filename, module) => {
+      try {
+        // FILE DIHAPUS
+        if (module === null) {
           const oldPlugin = global.plugins[filename];
-    
+
           if (oldPlugin?.cleanup instanceof Function) {
             try {
               await oldPlugin.cleanup();
             } catch (e) {
               global.logger.warn(
                 { plugin: filename, error: e.message },
-                "Old plugin cleanup error"
+                "Plugin cleanup error"
               );
             }
           }
-    
-          global.plugins[filename] = module;
-    
-          if (module?.init instanceof Function) {
-            try {
-              await module.init();
-            } catch (e) {
-              global.logger.warn(
-                { plugin: filename, error: e.message },
-                "Plugin init error"
-              );
-            }
+
+          delete global.plugins[filename];
+          global.logger.info({ plugin: filename }, "Plugin removed");
+
+          // 🆕 REBUILD INDEX
+          if (global.buildCommandIndex) {
+            try { global.buildCommandIndex(); }
+            catch (e) { global.logger.warn({ error: e.message }, "Rebuild index failed"); }
           }
-    
-          global.logger.info({ plugin: filename }, "Plugin reloaded");
-        } catch (e) {
-          global.logger.error(
-            { plugin: filename, error: e.message, stack: e.stack },
-            "Hot reload error"
-          );
+          return;
         }
+
+        // FILE DITAMBAH / DIUPDATE
+        const oldPlugin = global.plugins[filename];
+
+        if (oldPlugin?.cleanup instanceof Function) {
+          try {
+            await oldPlugin.cleanup();
+          } catch (e) {
+            global.logger.warn(
+              { plugin: filename, error: e.message },
+              "Old plugin cleanup error"
+            );
+          }
+        }
+
+        global.plugins[filename] = module;
+
+        // 🆕 REBUILD INDEX
+        if (global.buildCommandIndex) {
+          try { global.buildCommandIndex(); }
+          catch (e) { global.logger.warn({ error: e.message }, "Rebuild index failed"); }
+        }
+
+        if (module?.init instanceof Function) {
+          try {
+            await module.init();
+          } catch (e) {
+            global.logger.warn(
+              { plugin: filename, error: e.message },
+              "Plugin init error"
+            );
+          }
+        }
+
+        global.logger.info({ plugin: filename }, "Plugin reloaded");
+      } catch (e) {
+        global.logger.error(
+          { plugin: filename, error: e.message, stack: e.stack },
+          "Hot reload error"
+        );
       }
-    );
+    }
+  );
 
     // Start the bot
     await global.reloadHandler();
@@ -510,8 +528,6 @@ process.on("unhandledRejection", async (e) => {
 // ===============================================================
 // 🚀 WEBHOOK SERVER (PAKASIR) - JALAN BERSAMA BOT
 // ===============================================================
-
-import { checkTransaction } from "./lib/pakasir.js";
 
 function rupiah(amount) {
   return new Intl.NumberFormat('id-ID', {

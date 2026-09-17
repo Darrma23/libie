@@ -4,7 +4,7 @@
  * @description High-performance memory store with event queuing, TTL management,
  * and LRU/LFU eviction strategies for WhatsApp data synchronization.
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 import { Database } from "bun:sqlite";
@@ -128,6 +128,13 @@ export class MemoryStore {
          */
         this.processing = false;
 
+        /**
+         * Scheduled process flag to prevent multiple setImmediate calls
+         * @private
+         * @type {boolean}
+         */
+        this._processScheduled = false;
+
         this._startEventProcessor();
         this._startAutoCleanup();
     }
@@ -221,21 +228,22 @@ export class MemoryStore {
     }
 
     /**
-     * Starts the event processing loop
+     * Starts the event processing system (event-driven, no busy-wait)
      * @private
      * @method _startEventProcessor
      * @returns {void}
      *
      * @algorithm
-     * 1. Check if processor is idle and queue has items
-     * 2. Process up to MAX_INFLIGHT_OPS events concurrently
-     * 3. Mark processing status to prevent race conditions
-     * 4. Use setImmediate for non-blocking async processing
+     * 1. Process function only runs when there are events in queue
+     * 2. Processing is triggered by enqueueEvent, not by polling
+     * 3. After processing batch, if more events remain, reschedule
+     * 4. NO setImmediate loop when queue is empty (fixes CPU 100%)
      */
     _startEventProcessor() {
-        const process = () => {
+        this._process = () => {
+            this._processScheduled = false;
+
             if (this.processing || this.eventQueue.length === 0) {
-                setImmediate(process);
                 return;
             }
 
@@ -252,10 +260,13 @@ export class MemoryStore {
             }
 
             this.processing = false;
-            setImmediate(process);
-        };
 
-        setImmediate(process);
+            // Kalau masih ada event tersisa, jadwalkan proses berikutnya
+            if (this.eventQueue.length > 0 && !this._processScheduled) {
+                this._processScheduled = true;
+                setImmediate(this._process);
+            }
+        };
     }
 
     /**
@@ -325,9 +336,11 @@ export class MemoryStore {
         };
 
         // Schedule periodic cleanup
-        setInterval(cleanup, CLEANUP_INTERVAL);
+        this.cleanupTimer = setInterval(cleanup, CLEANUP_INTERVAL);
+        this.cleanupTimer.unref?.();
         // Initial cleanup after 1 minute
-        setTimeout(cleanup, 60000);
+        this.initialCleanupTimer = setTimeout(cleanup, 60000);
+        this.initialCleanupTimer.unref?.();
     }
 
     /**
@@ -342,6 +355,7 @@ export class MemoryStore {
      * - If queue full and priority is NOISE: drop event
      * - If queue full and priority higher: drop oldest event
      * - Maintains FIFO order within same priority
+     * - Triggers processing ONLY when there is work to do
      */
     enqueueEvent(type, data, priority = EVENT_PRIORITY.CORE) {
         if (this.eventQueue.length >= MAX_QUEUE_SIZE) {
@@ -353,6 +367,12 @@ export class MemoryStore {
         }
 
         this.eventQueue.push({ type, data, priority });
+
+        // Trigger processing hanya kalau belum ada proses yang dijadwalkan
+        if (!this.processing && !this._processScheduled) {
+            this._processScheduled = true;
+            setImmediate(this._process);
+        }
     }
 
     /**
@@ -693,6 +713,15 @@ export class MemoryStore {
      */
     disconnect() {
         try {
+            if (this.cleanupTimer) {
+                clearInterval(this.cleanupTimer);
+                this.cleanupTimer = null;
+            }
+            if (this.initialCleanupTimer) {
+                clearTimeout(this.initialCleanupTimer);
+                this.initialCleanupTimer = null;
+            }
+
             this.stmtGet?.finalize();
             this.stmtSet?.finalize();
             this.stmtDel?.finalize();
@@ -709,6 +738,7 @@ export class MemoryStore {
             this.eventQueue = [];
             this.inflightOps = 0;
             this.processing = false;
+            this._processScheduled = false;
 
             global.logger?.info("MemoryStore disconnected");
         } catch (e) {
