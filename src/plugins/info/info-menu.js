@@ -2,7 +2,7 @@
  * @file Menu/Help command handler
  * @module plugins/info/menu
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 /**
@@ -23,6 +23,7 @@
  * @features
  * - Interactive menu with category selection
  * - Shows bot information and uptime
+ * - Shows current date and Javanese weton
  * - Categorized command lists (AI, Downloader, Group, etc.)
  * - View all commands at once option
  * - Interactive buttons for navigation
@@ -139,9 +140,17 @@ async function main(conn, m, pkg, prefix, cmd, time) {
     const upBot = fmt(process.uptime());
     const upSys = fmt(os.uptime());
 
+    // 🆕 HARI + WETON JAWA
+    const now = new Date();
+    const wetonInfo = getWeton(now);
+    const tanggal = formatTanggal(now);
+
     const cap = [
         "```",
         `[${time}] Libie`,
+        "─".repeat(25),
+        `Date    : ${tanggal}`,
+        `Weton   : ${wetonInfo.hari} ${wetonInfo.pasaran}`,
         "─".repeat(25),
         `Name    : ${pkg.name}`,
         `Version : ${pkg.version}`,
@@ -285,7 +294,8 @@ handler.desc = [
   "Mendukung tampilan semua command sekaligus",
   "Navigasi menu menggunakan tombol interaktif",
   "Menampilkan badge command (owner, admin, limit)",
-  "Dilengkapi kartu kontak dan external preview"
+  "Dilengkapi kartu kontak dan external preview",
+  "Menampilkan tanggal dan weton Jawa hari ini"
 ]
 
 export default handler;
@@ -440,4 +450,66 @@ async function q() {
         },
         participant: "13135550002@s.whatsapp.net",
     };
+}
+
+/* ============================================================
+ * 🆕 HARI + WETON JAWA
+ * ============================================================ */
+
+/**
+ * Nama hari dalam Bahasa Indonesia
+ */
+const HARI_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+/**
+ * Nama bulan dalam Bahasa Indonesia
+ */
+const BULAN_ID = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+/**
+ * Pasaran Jawa (5 hari dalam siklus)
+ * Urutan: Legi → Pahing → Pon → Wage → Kliwon
+ */
+const PASARAN = ["Legi", "Pahing", "Pon", "Wage", "Kliwon"];
+
+/**
+ * Hitung weton Jawa dari tanggal
+ * @function getWeton
+ * @param {Date} [date=new Date()] - Tanggal
+ * @returns {{hari: string, pasaran: string}}
+ *
+ * @method
+ * - Hari: dari Date.getDay() (0=Minggu s/d 6=Sabtu)
+ * - Pasaran: berdasarkan Julian Day Number (JDN)
+ *   Verified: 17 September 2026 = Kamis Pahing
+ */
+function getWeton(date = new Date()) {
+    const hari = HARI_ID[date.getDay()];
+
+    // Julian Day Number (JDN) untuk tanggal lokal
+    const utcMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    const jdn = Math.floor(utcMs / 86400000) + 2440588;
+
+    // Verified: 17 Sept 2026 = Kamis Pahing
+    const idx = ((jdn % 5) + 5) % 5;
+    const pasaran = PASARAN[idx];
+
+    return { hari, pasaran };
+}
+
+/**
+ * Format tanggal dalam Bahasa Indonesia
+ * @function formatTanggal
+ * @param {Date} [date=new Date()] - Tanggal
+ * @returns {string} Contoh: "Kamis, 17 September 2026"
+ */
+function formatTanggal(date = new Date()) {
+    const { hari } = getWeton(date);
+    const tgl = date.getDate();
+    const bln = BULAN_ID[date.getMonth()];
+    const thn = date.getFullYear();
+    return `${hari}, ${tgl} ${bln} ${thn}`;
 }

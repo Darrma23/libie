@@ -4,6 +4,7 @@ import {
 
 import { useSQLiteAuthState } from "#auth";
 import { himejima } from "#core/socket.js";
+import { handler } from "../handler.js";
 
 import { join } from "node:path";
 import fs from "node:fs";
@@ -12,6 +13,9 @@ import { Boom } from "@hapi/boom";
 
 global.jadibots =
   global.jadibots || {};
+
+global.__jadibotMsgIds =
+  global.__jadibotMsgIds || new Set();
 
 export default async function startJadiBot({
   parentConn,
@@ -75,6 +79,58 @@ export default async function startJadiBot({
   );
 
   /*
+   * message handler
+   */
+  jadibotConn.ev.on("messages.upsert", async (chatUpdate) => {
+    try {
+
+      // skip retry / append, cuma proses pesan baru
+      if (chatUpdate.type && chatUpdate.type !== "notify") return;
+
+      const msg = chatUpdate.messages?.[0];
+      if (!msg) return;
+
+      // skip status broadcast
+      if (msg.key?.remoteJid === "status@broadcast") return;
+
+      // skip pesan sendiri
+      if (msg.key?.fromMe) return;
+
+      // dedup pakai message id
+      const msgId = msg.key?.id;
+      if (msgId) {
+        if (global.__jadibotMsgIds.has(msgId)) {
+          global.logger?.debug?.(
+            { msgId },
+            "jadibot: duplicate message skipped"
+          );
+          return;
+        }
+        global.__jadibotMsgIds.add(msgId);
+        if (global.__jadibotMsgIds.size > 500) {
+          const first =
+            global.__jadibotMsgIds.values().next().value;
+          global.__jadibotMsgIds.delete(first);
+        }
+      }
+
+      const m = jadibotConn.serializeM(msg);
+      if (!m) return;
+
+      await handler.call(jadibotConn, m, {
+        conn: jadibotConn,
+        text: m.text
+      });
+
+    } catch (e) {
+      global.logger?.error(
+        { err: e.message, stack: e.stack },
+        "jadibot message error"
+      );
+    }
+  });
+
+  /*
    * pairing code
    */
   try {
@@ -85,6 +141,13 @@ export default async function startJadiBot({
       await new Promise(resolve =>
         setTimeout(resolve, 2000)
       );
+
+      // DEBUG: cek socket state sebelum pairing
+      global.logger?.info?.({
+        wsOpen: jadibotConn.ws?.isOpen,
+        wsReadyState: jadibotConn.ws?.readyState,
+        hasRequestPairing: typeof jadibotConn.requestPairingCode,
+      }, "jadibot: socket state before pairing");
 
       const code =
         await jadibotConn.requestPairingCode(
@@ -150,7 +213,7 @@ export default async function startJadiBot({
           m.chat,
           "✅ JadiBot connected.",
           m
-        );
+        ).catch(() => {});
 
         global.logger?.info(
           {
@@ -174,16 +237,15 @@ export default async function startJadiBot({
         const loggedOut =
           reason === DisconnectReason.loggedOut;
 
-        const invalidSession =
-          !state.creds.registered;
+        // hapus session cuma kalau bener2 logout
+        // atau 405 (method_not_allowed, biasanya karena double-pairing)
+        const shouldDeleteSession =
+          loggedOut || reason === 405;
 
         /*
          * logout / session rusak
          */
-        if (
-          loggedOut ||
-          invalidSession
-        ) {
+        if (shouldDeleteSession) {
 
           try {
 
@@ -198,7 +260,7 @@ export default async function startJadiBot({
             m.chat,
             "❌ JadiBot logout.\nSession dihapus.",
             m
-          );
+          ).catch(() => {});
 
           global.logger?.warn(
             {

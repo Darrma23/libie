@@ -25,28 +25,86 @@
  * - Downloads audio with metadata preservation
  * - Displays album art and artist info in rich preview
  * - Shows loading indicators during processing
+ * - Fetches audio FIRST (before canvas) to avoid URL expiry
+ * - Validates download URL and handles size limit
  */
 import { convert } from "#lib/convert.js";
 import { play } from "#api/play.js";
 import { canvas } from "#canvas/play.js";
 
+/** Max audio size accepted for WhatsApp PTT (~25MB) */
+const MAX_AUDIO_SIZE = 25 * 1024 * 1024;
+
+/** Timeout for audio download (ms) */
+const DOWNLOAD_TIMEOUT = 30000;
+
+/**
+ * Normalizes convert() output into a Buffer, or throws if shape is unknown
+ * @param {unknown} converted
+ * @returns {Buffer}
+ */
+function normalizeBuffer(converted) {
+    if (Buffer.isBuffer(converted)) return converted;
+    if (converted?.buffer) return Buffer.from(converted.buffer);
+    if (converted?.data) return Buffer.from(converted.data);
+    throw new Error("Konversi audio gagal: format buffer tidak dikenali");
+}
+
 let handler = async (m, { conn, args, usedPrefix, command }) => {
-    if (!args[0]) return m.reply(`Need song title\nEx: ${usedPrefix + command} Bye`);
+    const query = args.join(" ").trim();
+    if (!query) {
+        return m.reply(`Need song title\nEx: ${usedPrefix + command} Bye`);
+    }
 
     await global.loading(m, conn);
+
     try {
-        const { success, title, channel, cover, url, downloadUrl, error } = await play(
-            args.join(" ")
-        );
-        if (!success) throw new Error(error);
+        // 1) Resolve metadata + download URL
+        const res = await play(query);
+        if (!res.success) throw new Error(res.error || "Pencarian gagal");
 
-        const canvasBuffer = await canvas(cover, title, channel);
+        const { title, channel, cover, url, downloadUrl } = res;
 
-        const audioRes = await fetch(downloadUrl);
-        if (!audioRes.ok) throw new Error("No download URL");
+        if (!downloadUrl || !/^https?:\/\//i.test(downloadUrl)) {
+            throw new Error("Provider mengembalikan URL download tidak valid");
+        }
+
+        // 2) Fetch audio FIRST (URL gamma.123tokyo.xyz cepat expired)
+        const audioRes = await fetch(downloadUrl, {
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+                "Referer": "https://www.youtube.com/",
+                "Accept": "*/*",
+            },
+            signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT),
+        });
+
+        if (!audioRes.ok) {
+            throw new Error(`Gagal unduh audio (HTTP ${audioRes.status}). Coba lagu lain.`);
+        }
+
+        const contentType = audioRes.headers.get("content-type") || "";
+        if (/text\/html/i.test(contentType)) {
+            throw new Error("Server balas HTML (bukan audio). URL kemungkinan expired.");
+        }
 
         const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
 
+        if (!audioBuffer.length) {
+            throw new Error("File audio kosong");
+        }
+        if (audioBuffer.length > MAX_AUDIO_SIZE) {
+            throw new Error("Audio terlalu besar (>25MB)");
+        }
+
+        // 3) Generate thumbnail canvas AFTER download (non time-critical)
+        const canvasBuffer = await canvas(cover, title, channel).catch((e) => {
+            global.logger?.warn?.("[play] canvas failed:", e?.message || e);
+            return null;
+        });
+
+        // 4) Convert to Opus (PTT)
         const converted = await convert(audioBuffer, {
             format: "opus",
             bitrate: "128k",
@@ -55,15 +113,12 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             ptt: true,
         });
 
-        const finalBuffer =
-            converted instanceof Buffer
-                ? converted
-                : converted?.buffer
-                  ? Buffer.from(converted.buffer)
-                  : converted?.data
-                    ? Buffer.from(converted.data)
-                    : Buffer.from(converted);
+        const finalBuffer = normalizeBuffer(converted);
+        if (!finalBuffer.length) {
+            throw new Error("Konversi audio menghasilkan buffer kosong");
+        }
 
+        // 5) Send
         await conn.sendMessage(
             m.chat,
             {
@@ -72,10 +127,10 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 ptt: true,
                 contextInfo: {
                     externalAdReply: {
-                        title,
-                        body: channel,
-                        thumbnail: canvasBuffer,
-                        mediaUrl: url,
+                        title: title || "Unknown Title",
+                        body: channel || "YouTube Music",
+                        thumbnail: canvasBuffer || undefined,
+                        mediaUrl: url || downloadUrl,
                         mediaType: 1,
                         renderLargerThumbnail: true,
                     },
@@ -84,10 +139,14 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             { quoted: m }
         );
     } catch (e) {
-        global.logger.error(e);
-        m.reply(`Error: ${e.message}`);
+        global.logger?.error?.(e);
+        const raw = e?.message || String(e);
+        const safe = /^(https?:|at |\/)/i.test(raw)
+            ? "Gagal memproses audio. Coba lagi nanti."
+            : raw;
+        await m.reply(`Error: ${safe}`).catch(() => {});
     } finally {
-        await global.loading(m, conn, true);
+        await global.loading(m, conn, true).catch(() => {});
     }
 };
 
@@ -99,6 +158,6 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
  */
 handler.help = ["play"];
 handler.tags = ["downloader"];
-handler.command = /^(play)$/i;
+handler.command = /^play$/i;
 
 export default handler;

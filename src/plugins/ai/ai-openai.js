@@ -125,10 +125,7 @@ let handler = async (m, { conn, text, usedPrefix }) => {
     })
   }
 
-  try {
-    // Show loading
-    await conn.sendPresenceUpdate('composing', m.chat)
-    
+  try {    
     // Start loading
     if (global.loading) {
       await global.loading(m, conn)

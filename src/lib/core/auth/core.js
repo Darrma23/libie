@@ -4,7 +4,7 @@
  * @description SQLite-based storage system for Baileys session management
  * with memory caching, write buffering, and automatic vacuuming.
  * @license Apache-2.0
- * @author Naruya Izumi
+ * @author Himejima
  */
 
 /* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
