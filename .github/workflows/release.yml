@@ -18,7 +18,7 @@ jobs:
             new_version: ${{ steps.check.outputs.version }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
                   
@@ -46,7 +46,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
               with:
                   token: ${{ secrets.PAT_TOKEN }}
                   fetch-depth: 0
@@ -65,7 +65,7 @@ jobs:
      if: needs.check-version.outputs.should_release == 'true'
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@v4
+       - uses: actions/checkout@v7
          with:
            fetch-depth: 0
    
@@ -78,7 +78,7 @@ jobs:
            echo "EOF" >> $GITHUB_OUTPUT
    
        - name: Create GitHub Release
-         uses: softprops/action-gh-release@v2
+         uses: softprops/action-gh-release@v3
          with:
            tag_name: v${{ needs.check-version.outputs.new_version }}
            name: Release v${{ needs.check-version.outputs.new_version }}
